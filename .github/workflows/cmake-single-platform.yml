@@ -28,7 +28,8 @@ jobs:
       run: cmake -B ${{github.workspace}}/build ./src/ -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 
     - name: Build
-      run: apt-get update && apt-get install -y cmake libopenmpi-dev
+      run: |
+      apt-get update && apt-get install -y cmake libopenmpi-dev
       # Build your program with the given configuration
       cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
 
