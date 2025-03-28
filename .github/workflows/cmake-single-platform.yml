@@ -27,10 +27,7 @@ jobs:
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
       run:  |
         sudo apt-get update
-        sudo apt-get install -y software-properties-common
-        sudo add-apt-repository -y ppa:deadsnakes/ppa
-        sudo apt-get update
-        sudo apt-get install -y cmake libopenmpi-dev vtk7
+        sudo apt-get install -y cmake libopenmpi-dev libvtk9-dev
         cmake -B ${{github.workspace}}/build ./src/ -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 
     - name: Build
