@@ -27,7 +27,7 @@ jobs:
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
       run:  |
         sudo apt-get update
-        sudo apt-get install -y cmake libopenmpi-dev libvtk9-dev
+        sudo apt-get install -y cmake libopenmpi-dev libvtk9-dev qt5-default qttools5-dev-tools
         cmake -B ${{github.workspace}}/build ./src/ -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 
     - name: Build
