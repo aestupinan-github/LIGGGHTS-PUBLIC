@@ -103,6 +103,8 @@ OPTION(ENABLE_MODEL_HERTZ_STIFFNESS "Hertz Stiffness Model" ${DEFAULT_OFF})
 OPTION(ENABLE_MODEL_LUDING "Luding Model" ${DEFAULT_OFF})
 OPTION(ENABLE_MODEL_THORNTON_NING "Thornton Ning Model" ${DEFAULT_OFF})
 
+#OPTION(ENABLE_MODEL_ML_OVERLAP "ML Overlap Model (test)" ${DEFAULT_OFF})
+
 # 4 tangential models
 OPTION(ENABLE_MODEL_TANGENTIAL_OFF "Tangential Model Off" ${DEFAULT_OFF})
 OPTION(ENABLE_MODEL_TANGENTIAL_HISTORY "Tangential Model History" ${DEFAULT_ON})
@@ -221,6 +223,11 @@ IF(ENABLE_MODEL_THORNTON_NING)
   ADD_CONTACT_MODEL("THORNTON_NING" "" "" "" "" "")
   SET(ENABLED_MODELS "${ENABLED_MODELS} THORNTON_NING")
 ENDIF()
+
+#IF(ENABLE_MODEL_ML_OVERLAP)
+#  ADD_CONTACT_MODEL("ML_OVERLAP" "" "" "" "" "")
+#  SET(ENABLED_MODELS "${ENABLED_MODELS} ML_OVERLAP")
+#ENDIF()
 
 # 4 tangential models
 IF(ENABLE_MODEL_TANGENTIAL_OFF)
@@ -493,6 +500,18 @@ ELSE()
 ENDIF()
 
 #=======================================
+
+
+# --- libtorch (for ML contact models) ---
+#list(APPEND CMAKE_PREFIX_PATH "$ENV{LIBTORCH_DIR}")
+#find_package(Torch REQUIRED)
+
+#target_link_libraries(liggghts_static PRIVATE ${TORCH_LIBRARIES})
+#target_link_libraries(liggghts_shared PRIVATE ${TORCH_LIBRARIES})
+#target_link_libraries(liggghts_bin PRIVATE ${TORCH_LIBRARIES})
+
+
+
 IF(ENABLE_SMALLBIG)
   IF(ENABLE_BIGBIG OR ENABLE_SMALLSMALL)
     MESSAGE(FATAL_ERROR "Use only one of these options: SMALLBIG, BIGBIG, SMALLSMALL")

@@ -58,6 +58,10 @@ FixStyle(wall/gran,FixWallGran)
 #include "fix_contact_property_atom_wall.h"
 #include "compute_pair_gran_local.h"
 
+// /////////////////////////////////////////////////////
+// AED  : torch surrogate implementation
+#include <torch/script.h> // LibTorch header
+
 namespace LCM = LIGGGHTS::ContactModels;
 
 namespace LAMMPS_NS {
@@ -211,6 +215,23 @@ class FixWallGran : public Fix, public LIGGGHTS::IContactHistorySetup {
   void addHeatFlux(class TriMesh *mesh,int i,const double ri,double rsq,double area_ratio);
 
  protected:
+
+  // /////////////////////////////////////////////////////
+  // AED  : torch surrogate implementation
+  struct SurrogateContactData {
+    bool is_non_spherical;
+    int i;
+    double deltan;
+    double delta[3];
+  };
+
+  // persistent variables for model and scaling parameters
+  torch::jit::script::Module surrogate_model;
+  bool surrogate_loaded = false;
+  double y_mean[4] = {0.0, 0.0, 0.0, 0.0};
+  double y_scale[4] = {1.0, 1.0, 1.0, 1.0};
+
+  // /////////////////////////////////////////////////////
 
   int iarg_, narg_;
   int atom_type_wall_;

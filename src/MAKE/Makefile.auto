@@ -1316,6 +1316,31 @@ include	Makefile.package
 
 EXTRA_INC += $(PKG_INC) $(PKG_SYSINC)
 EXTRA_LIB += $(PKG_LIB) $(PKG_SYSLIB)
+
+
+
+# --- LibTorch (user-added) ---
+EXTRA_LIB += -L/home/aestupinan/Programs/libtorch/lib
+EXTRA_LIB += -ltorch
+EXTRA_LIB += -ltorch_cpu
+EXTRA_LIB += -lc10
+EXTRA_LIB += -lcaffe2_protos
+EXTRA_LIB += -lfmt
+EXTRA_LIB += -lprotobuf
+EXTRA_LIB += -lprotobuf-lite
+EXTRA_LIB += -ltorch_global_deps
+EXTRA_LIB += -lgomp
+EXTRA_LIB += -lpthread
+EXTRA_LIB += -ldl
+
+EXTRA_INC += -I/home/aestupinan/Programs/libtorch/include
+EXTRA_INC += -I/home/aestupinan/Programs/libtorch/include/torch/csrc/api/include
+
+
+
+
+
+
 EXTRA_PATH += $(PKG_PATH) $(PKG_SYSPATH)
 EXTRA_ADDLIBS += $(PKG_ADDLIBS) $(PKG_SYSADDLIBS)
 
