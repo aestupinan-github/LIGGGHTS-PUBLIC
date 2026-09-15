@@ -1,0 +1,188 @@
+LIGGGHTS (Version LIGGGHTS-PUBLIC 3.8.0, compiled 2026-09-01 01:49:48 by aestupinan, git commit 72bfaad81bea0d6393b508370620c702f29ad987, build configuration: MPI VTK SMALLBIG, models: HERTZ ML_OVERLAP TANGENTIAL_HISTORY TANGENTIAL_NO_HISTORY COHESION_SJKR COHESION_SJKR2 ROLLING_EPSD ROLLING_EPSD2 SURFACE_DEFAULT)
+#Simple chute wear test
+
+atom_style    granular
+atom_modify   map array
+boundary      f f f
+newton        off
+
+communicate   single vel yes
+
+units         si
+
+region        domain block -0.5 0.1 -0.2 0.2 -0.4 0.15 units box
+create_box    1 domain
+Created orthogonal box = (-0.5 -0.2 -0.4) to (0.1 0.2 0.15)
+  1 by 1 by 1 MPI processor grid
+
+neighbor      0.002 bin
+neigh_modify  delay 0
+
+
+#Material properties required for new pair styles
+
+fix  m1 all property/global youngsModulus peratomtype 5.e6
+fix  m2 all property/global poissonsRatio peratomtype 0.45
+fix  m3 all property/global coefficientRestitution peratomtypepair 1 0.3
+fix  m4 all property/global coefficientFriction peratomtypepair 1 0.5
+fix  m5 all property/global k_finnie peratomtypepair 1 1.0
+
+#New pair style
+pair_style  gran model hertz tangential history #Hertzian without cohesion
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (/home/aestupinan/Programs/LIGGGHTS-PUBLIC/src/contact_models.h:365)
+pair_coeff  * *
+
+timestep    0.00001
+
+fix  gravi all gravity 9.81 vector 0.0 0.0 -1.0
+
+#the chute
+fix  cad all mesh/surface/stress file meshes/simple_chute.stl type 1 wear finnie
+fix  inface all mesh/surface file meshes/insertion_face.stl type 1
+fix  granwalls all wall/gran model hertz tangential history mesh n_meshes 1 meshes cad
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (/home/aestupinan/Programs/LIGGGHTS-PUBLIC/src/contact_models.h:365)
+
+
+#distributions for insertion
+fix  pts1 all particletemplate/sphere 15485863 atom_type 1 density constant 2500 radius constant 0.0015
+fix  pts2 all particletemplate/sphere 15485867 atom_type 1 density constant 2500 radius constant 0.0025
+fix  pdd1 all particledistribution/discrete 32452843  2 pts1 0.3 pts2 0.7
+
+#region and insertion
+group  nve_group region domain
+0 atoms in group nve_group
+region bc cylinder z 0.0 0.0 0.015 0.05 0.12 units box
+
+#particle insertion
+fix    ins nve_group insert/stream seed 32452867 distributiontemplate pdd1        nparticles 6000 massrate 0.1 insert_every 1000 overlapcheck yes all_in no vel constant 0.0 0.0 -1.0        insertion_face inface
+
+#apply nve integration to all particles that are inserted as single particles
+fix    integr nve_group nve/sphere
+
+#output settings, include total thermal energy
+compute       1 all erotate/sphere
+thermo_style  custom step atoms ke c_1 vol
+thermo        1000
+thermo_modify lost ignore norm no
+
+#insert the first particles so that dump is not empty
+run    1
+Setting up run at Tue Sep  1 21:14:31 2026
+
+INFO: Particle insertion ins: 12.766349 particles every 1000 steps - particle rate 1276.634850, (mass rate 1.000000e-01)
+      6000 particles (mass 4.699856e-01) within 469000 steps
+Memory usage per processor = 19.9065 Mbytes
+    Step    Atoms         KinEng              1         Volume 
+       0        0              0              0          0.132 
+INFO: Particle insertion ins: inserted 13 particle templates (mass 1.100866e-03) at step 1
+ - a total of 13 particle templates (mass 1.100866e-03) inserted so far.
+       1       13  0.00055043321              0          0.132 
+Loop time of 0.00943355 on 1 procs for 1 steps with 13 atoms, finish time Tue Sep  1 21:14:31 2026
+
+
+Pair  time (%) = 5.028e-06 (0.0532991)
+Neigh time (%) = 0.00209263 (22.1828)
+Comm  time (%) = 3.13e-06 (0.0331795)
+Outpt time (%) = 1.7802e-05 (0.188709)
+Other time (%) = 0.00731496 (77.542)
+
+Nlocal:    13 ave 13 max 13 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:    0 ave 0 max 0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:    1 ave 1 max 1 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 1
+Ave neighs/atom = 0.0769231
+Neighbor list builds = 1
+Dangerous builds = 0
+dump   dmp all custom/vtk 200 post/chute_*.vtk id type type x y z ix iy iz vx vy vz fx fy fz omegax omegay omegaz radius
+dump   dumpstress all mesh/gran/VTK 200 post/mesh_*.vtk stress wear cad
+
+#insert particles
+run    100000 upto
+Setting up run at Tue Sep  1 21:14:31 2026
+
+Memory usage per processor = 24.221 Mbytes
+    Step    Atoms         KinEng              1         Volume 
+       1       13  0.00055043321              0          0.132 
+    1000       13  0.00059822775              0          0.132 
+INFO: Particle insertion ins: inserted 12 particle templates (mass 9.372418e-04) at step 1001
+ - a total of 25 particle templates (mass 2.038108e-03) inserted so far.
+    2000       25   0.0012032698              0          0.132 
+INFO: Particle insertion ins: inserted 13 particle templates (mass 1.100866e-03) at step 2001
+ - a total of 38 particle templates (mass 3.138975e-03) inserted so far.
+    3000       38   0.0020152801              0          0.132 
+INFO: Particle insertion ins: inserted 13 particle templates (mass 1.100866e-03) at step 3001
+ - a total of 51 particle templates (mass 4.239841e-03) inserted so far.
+    4000       51    0.002938778              0          0.132 
+INFO: Particle insertion ins: inserted 13 particle templates (mass 9.725847e-04) at step 4001
+ - a total of 64 particle templates (mass 5.212426e-03) inserted so far.
+    5000       64    0.003951526              0          0.132 
+INFO: Particle insertion ins: inserted 13 particle templates (mass 9.725847e-04) at step 5001
+ - a total of 77 particle templates (mass 6.185011e-03) inserted so far.
+    6000       77   0.0051178857              0          0.132 
+INFO: Particle insertion ins: inserted 13 particle templates (mass 9.725847e-04) at step 6001
+ - a total of 90 particle templates (mass 7.157595e-03) inserted so far.
+    7000       90    0.006437356              0          0.132 
+INFO: Particle insertion ins: inserted 12 particle templates (mass 9.372418e-04) at step 7001
+ - a total of 102 particle templates (mass 8.094837e-03) inserted so far.
+    8000      102   0.0078971419              0          0.132 
+INFO: Particle insertion ins: inserted 12 particle templates (mass 9.372418e-04) at step 8001
+ - a total of 114 particle templates (mass 9.032079e-03) inserted so far.
+    9000      114   0.0095129558              0          0.132 
+INFO: Particle insertion ins: inserted 13 particle templates (mass 1.100866e-03) at step 9001
+ - a total of 127 particle templates (mass 1.013295e-02) inserted so far.
+   10000      127    0.011413667              0          0.132 
+INFO: Particle insertion ins: inserted 13 particle templates (mass 1.100866e-03) at step 10001
+ - a total of 140 particle templates (mass 1.123381e-02) inserted so far.
+   11000      140    0.012479654  4.8301053e-05          0.132 
+INFO: Particle insertion ins: inserted 13 particle templates (mass 1.100866e-03) at step 11001
+ - a total of 153 particle templates (mass 1.233468e-02) inserted so far.
+   12000      153    0.013602263  8.7075992e-05          0.132 
+INFO: Particle insertion ins: inserted 13 particle templates (mass 1.100866e-03) at step 12001
+ - a total of 166 particle templates (mass 1.343554e-02) inserted so far.
+   13000      166    0.013992887  0.00014771227          0.132 
+INFO: Particle insertion ins: inserted 13 particle templates (mass 9.725847e-04) at step 13001
+ - a total of 179 particle templates (mass 1.440813e-02) inserted so far.
+WARNING: Forced restart written (/home/aestupinan/Programs/LIGGGHTS-PUBLIC/src/output.cpp:427)
+   13648      179    0.014056256  0.00022440678          0.132 
+Loop time of 1.89896 on 1 procs for 99999 steps with 179 atoms, finish time Tue Sep  1 21:14:33 2026
+
+
+Pair  time (%) = 0.0164211 (0.864746)
+Neigh time (%) = 0.507615 (26.7313)
+Comm  time (%) = 0.046746 (2.46167)
+Outpt time (%) = 0.495242 (26.0797)
+Other time (%) = 0.832931 (43.8626)
+
+Nlocal:    179 ave 179 max 179 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:    0 ave 0 max 0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:    17 ave 17 max 17 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 17
+Ave neighs/atom = 0.0949721
+Neighbor list builds = 228
+Dangerous builds = 0

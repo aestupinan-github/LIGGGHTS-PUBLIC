@@ -1,0 +1,268 @@
+LIGGGHTS (Version LIGGGHTS-PUBLIC 3.8.0, compiled 2026-09-02-16:13:05 by aestupinan, git commit 72bfaad81bea0d6393b508370620c702f29ad987)
+# to run the script you have to define the variables via '-var' option
+#  - blockiness1
+#  - blockiness2
+#  - angle
+
+echo both
+
+atom_style	superquadric
+
+atom_modify	map array
+
+boundary	f f f
+newton		off
+communicate	single vel yes
+units		si
+
+region		reg block -0.05 0.05 -0.05 0.05 0.0 0.1 units box
+create_box	2 reg
+Created orthogonal box = (-0.05 -0.05 0) to (0.05 0.05 0.1)
+  1 by 1 by 1 MPI processor grid
+
+neighbor	0.002 bin
+neigh_modify	delay 0
+
+variable dt equal 1e-5
+variable nStepsRun    equal 1.0/${dt}
+variable nStepsRun    equal 1.0/1e-05
+variable writeOutEvery equal 0.005/${dt}
+variable writeOutEvery equal 0.005/1e-05
+variable thermofreq   equal 0.01/${dt}
+variable thermofreq   equal 0.01/1e-05
+
+variable cf_ww equal 1.0
+variable cf_pw equal 0.5
+variable cf_pp equal 0.5
+
+variable cof_ww equal 0.5
+variable cof_pw equal 0.5
+variable cof_pp equal 0.5
+
+variable corf_ww equal 0.
+variable corf_pw equal 0.05
+variable corf_pp equal 0.05
+
+#variable coefficientRollingViscousDamping_ww equal 0.0
+#variable coefficientRollingViscousDamping_pw equal 0.0
+#variable coefficientRollingViscousDamping_pp equal 0.0
+
+variable Yw equal 1e+7
+variable Yp equal 1e+7
+
+#Material properties required for new pair styles
+fix 		m1 all property/global youngsModulus peratomtype ${Yw} ${Yp}
+fix 		m1 all property/global youngsModulus peratomtype 10000000 ${Yp}
+fix 		m1 all property/global youngsModulus peratomtype 10000000 10000000
+fix 		m2 all property/global poissonsRatio peratomtype 0.3 0.3
+fix 		m3 all property/global coefficientRestitution peratomtypepair 2 ${cf_ww} ${cf_pw} ${cf_pw} ${cf_pp}
+fix 		m3 all property/global coefficientRestitution peratomtypepair 2 1 ${cf_pw} ${cf_pw} ${cf_pp}
+fix 		m3 all property/global coefficientRestitution peratomtypepair 2 1 0.5 ${cf_pw} ${cf_pp}
+fix 		m3 all property/global coefficientRestitution peratomtypepair 2 1 0.5 0.5 ${cf_pp}
+fix 		m3 all property/global coefficientRestitution peratomtypepair 2 1 0.5 0.5 0.5
+fix         m4 all property/global coefficientFriction peratomtypepair 2 ${cof_ww} ${cof_pw} ${cof_pw} ${cof_pp}
+fix         m4 all property/global coefficientFriction peratomtypepair 2 0.5 ${cof_pw} ${cof_pw} ${cof_pp}
+fix         m4 all property/global coefficientFriction peratomtypepair 2 0.5 0.5 ${cof_pw} ${cof_pp}
+fix         m4 all property/global coefficientFriction peratomtypepair 2 0.5 0.5 0.5 ${cof_pp}
+fix         m4 all property/global coefficientFriction peratomtypepair 2 0.5 0.5 0.5 0.5
+fix         m5 all property/global coefficientRollingFriction peratomtypepair 2 ${corf_ww} ${corf_pw} ${corf_pw} ${corf_pp}
+fix         m5 all property/global coefficientRollingFriction peratomtypepair 2 0 ${corf_pw} ${corf_pw} ${corf_pp}
+fix         m5 all property/global coefficientRollingFriction peratomtypepair 2 0 0.05 ${corf_pw} ${corf_pp}
+fix         m5 all property/global coefficientRollingFriction peratomtypepair 2 0 0.05 0.05 ${corf_pp}
+fix         m5 all property/global coefficientRollingFriction peratomtypepair 2 0 0.05 0.05 0.05
+fix         m6 all property/global characteristicVelocity scalar 1.0
+fix         m7 all property/global coefficientRollingViscousDamping peratomtypepair 2 0.0 0.0 0.0 0.0
+
+
+#New pair style
+pair_style gran model hertz tangential history rolling_friction epsd2 surface superquadric #Hertzian without cohesion
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (../contact_models.h:365)
+==== PAIR SETTINGS ====
+ computeDissipatedEnergy = off
+ computeElasticPotential = off
+ curvatureLimitFactor = 0
+ disableNormalWhenBonded = off
+ gaussianCurvature = no
+ heating_normal_hertz = off
+ heating_tangential_history = off
+ heating_tracking = off
+ limitForce = off
+ meanCurvature = no
+ tangential_damping = on
+ torsionTorque = off
+==== PAIR SETTINGS ====
+pair_coeff	* *
+timestep ${dt}
+timestep 1e-05
+
+variable totaltime equal step*${dt}
+variable totaltime equal step*1e-05
+
+#fix		cad all mesh/surface/stress file meshes/simple_chute.stl type 1 wear finnie
+#fix		inface all mesh/surface file meshes/insertion_face.stl type 1
+#fix granwalls all wall/gran model hertz tangential history surface superquadric mesh n_meshes 1 meshes cad
+
+fix xwalls1 all wall/gran model hertz tangential history rolling_friction epsd2 surface superquadric primitive type 1 xplane -0.05
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (../contact_models.h:365)
+==== WALL xwalls1 SETTINGS ====
+ computeDissipatedEnergy = off
+ computeElasticPotential = off
+ curvatureLimitFactor = 0
+ disableNormalWhenBonded = off
+ gaussianCurvature = no
+ heating_normal_hertz = off
+ heating_tangential_history = off
+ heating_tracking = off
+ limitForce = off
+ meanCurvature = no
+ tangential_damping = on
+ torsionTorque = off
+==== WALL xwalls1 SETTINGS ====
+fix xwalls2 all wall/gran model hertz tangential history rolling_friction epsd2 surface superquadric primitive type 1 xplane 0.05
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (../contact_models.h:365)
+==== WALL xwalls2 SETTINGS ====
+ computeDissipatedEnergy = off
+ computeElasticPotential = off
+ curvatureLimitFactor = 0
+ disableNormalWhenBonded = off
+ gaussianCurvature = no
+ heating_normal_hertz = off
+ heating_tangential_history = off
+ heating_tracking = off
+ limitForce = off
+ meanCurvature = no
+ tangential_damping = on
+ torsionTorque = off
+==== WALL xwalls2 SETTINGS ====
+fix ywalls1 all wall/gran model hertz tangential history rolling_friction epsd2 surface superquadric primitive type 1 yplane -0.05
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (../contact_models.h:365)
+==== WALL ywalls1 SETTINGS ====
+ computeDissipatedEnergy = off
+ computeElasticPotential = off
+ curvatureLimitFactor = 0
+ disableNormalWhenBonded = off
+ gaussianCurvature = no
+ heating_normal_hertz = off
+ heating_tangential_history = off
+ heating_tracking = off
+ limitForce = off
+ meanCurvature = no
+ tangential_damping = on
+ torsionTorque = off
+==== WALL ywalls1 SETTINGS ====
+fix ywalls2 all wall/gran model hertz tangential history rolling_friction epsd2 surface superquadric primitive type 1 yplane 0.05
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (../contact_models.h:365)
+==== WALL ywalls2 SETTINGS ====
+ computeDissipatedEnergy = off
+ computeElasticPotential = off
+ curvatureLimitFactor = 0
+ disableNormalWhenBonded = off
+ gaussianCurvature = no
+ heating_normal_hertz = off
+ heating_tangential_history = off
+ heating_tracking = off
+ limitForce = off
+ meanCurvature = no
+ tangential_damping = on
+ torsionTorque = off
+==== WALL ywalls2 SETTINGS ====
+fix zwalls1 all wall/gran model hertz tangential history rolling_friction epsd2 surface superquadric primitive type 1 zplane 0.0
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (../contact_models.h:365)
+==== WALL zwalls1 SETTINGS ====
+ computeDissipatedEnergy = off
+ computeElasticPotential = off
+ curvatureLimitFactor = 0
+ disableNormalWhenBonded = off
+ gaussianCurvature = no
+ heating_normal_hertz = off
+ heating_tangential_history = off
+ heating_tracking = off
+ limitForce = off
+ meanCurvature = no
+ tangential_damping = on
+ torsionTorque = off
+==== WALL zwalls1 SETTINGS ====
+fix zwalls2 all wall/gran model hertz tangential history rolling_friction epsd2 surface superquadric primitive type 1 zplane 0.1
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (../contact_models.h:365)
+==== WALL zwalls2 SETTINGS ====
+ computeDissipatedEnergy = off
+ computeElasticPotential = off
+ curvatureLimitFactor = 0
+ disableNormalWhenBonded = off
+ gaussianCurvature = no
+ heating_normal_hertz = off
+ heating_tangential_history = off
+ heating_tracking = off
+ limitForce = off
+ meanCurvature = no
+ tangential_damping = on
+ torsionTorque = off
+==== WALL zwalls2 SETTINGS ====
+
+
+create_atoms 1 single 0.0 0.0 0.01
+Created 1 atoms
+set atom 1 type 2 shape 0.002 0.002 0.004 blockiness ${blockiness1} ${blockiness2} density 2500 vz 0.1 quat 1 0 0 ${a

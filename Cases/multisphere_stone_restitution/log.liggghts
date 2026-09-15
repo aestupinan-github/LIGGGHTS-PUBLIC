@@ -1,0 +1,194 @@
+LIGGGHTS (Version LIGGGHTS-PUBLIC 3.8.0, compiled 2026-09-01 21:35:28 by aestupinan, git commit 72bfaad81bea0d6393b508370620c702f29ad987, build configuration: MPI VTK SMALLBIG, models: HERTZ TANGENTIAL_HISTORY TANGENTIAL_NO_HISTORY COHESION_SJKR COHESION_SJKR2 ROLLING_EPSD ROLLING_EPSD2 SURFACE_DEFAULT)
+#Multisphere
+
+atom_style	sphere
+atom_modify	map array sort 0 0
+boundary	m m m
+newton		off
+
+communicate	single vel yes
+
+#PUBLIC version only supports serial execution
+processors	1 1 1
+
+units		si
+
+region		reg block -0.3 0.3 -0.3 0.3 0. 0.5 units box
+create_box	1 reg
+Created orthogonal box = (-0.3 -0.3 0) to (0.3 0.3 0.5)
+  1 by 1 by 1 MPI processor grid
+
+neighbor	0.004 bin
+neigh_modify	delay 0
+
+#Material properties required for new pair styles
+
+fix 		m1 all property/global youngsModulus peratomtype 1.e7
+fix 		m2 all property/global poissonsRatio peratomtype 0.45
+fix 		m3 all property/global coefficientRestitution peratomtypepair 1 0.3
+fix 		m4 all property/global coefficientFriction peratomtypepair 1 0.5
+fix 		m5 all property/global characteristicVelocity scalar 2.
+
+#New pair style
+pair_style gran model hertz tangential history #Hertzian without cohesion
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (/home/aestupinan/Programs/LIGGGHTS-PUBLIC/src/contact_models.h:365)
+pair_coeff	* *
+
+timestep	0.00001
+
+fix		gravi all gravity 9.81 vector 0.0 0.0 -1.0
+
+fix zwalls all wall/gran model hertz tangential history primitive type 1 zplane 0.0
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (/home/aestupinan/Programs/LIGGGHTS-PUBLIC/src/contact_models.h:365)
+
+#distributions for insertion
+fix		pts1 all particletemplate/multisphere 15485863 atom_type 1 density constant 2500 nspheres 50 ntry 1000000 spheres file data/stone1.multisphere scale 0.001 type 1
+Finished calculating properties of template
+   mass = 4.600930e-02, radius of bounding sphere = 2.864948e-02, radius of equivalent sphere = 1.637843e-02
+   center of mass = 0.000000e+00, 0.000000e+00, 0.000000e+00
+   center of bounding sphere in body coords = -1.197906e-03, 1.385636e-03, -4.317351e-04
+   Principal moments of inertia_: 3.973377e-06, 9.463003e-06, 7.339920e-06
+     Eigenvector: 9.748394e-01, 7.281497e-02, -2.106802e-01
+     Eigenvector: -2.742111e-02, 9.771367e-01, 2.108361e-01
+     Eigenvector: 2.212154e-01, -1.997543e-01, 9.545480e-01
+     Inertia tensor: 4.142251e-06, -2.958533e-07, 6.791443e-07
+     Inertia tensor: -2.958533e-07, 9.349182e-06, 4.890334e-07
+     Inertia tensor: 6.791443e-07, 4.890334e-07, 7.284867e-06
+fix		pdd1 all particledistribution/discrete 15485867 1 pts1 1.0
+
+#region and insertion
+region		bc cylinder z 0.0 0.0 0.25 0.1 0.4 units box
+
+fix		ins all insert/pack seed 32452843 distributiontemplate pdd1 vel constant 0. 0. -1. 		insert_every once overlapcheck yes region bc ntry_mc 10000 volumefraction_region 0.0004
+
+#integrator for multisphere rigid bodies
+fix		integr all multisphere
+
+#output settings, include total thermal energy
+compute		1 all erotate/sphere
+fix		ts all check/timestep/gran 1000 0.1 0.1
+thermo_style	custom step atoms ke c_1 f_ts[1] f_ts[2] vol
+thermo		1000
+thermo_modify	lost ignore norm no
+
+run 1
+Setting up run at Tue Sep  1 22:41:39 2026
+
+WARNING: Energy calculated for multisphere particles is currently not correct (/home/aestupinan/Programs/LIGGGHTS-PUBLIC/src/fix_multisphere.cpp:1312)
+INFO: Particle insertion ins: inserting every 0 steps
+Memory usage per processor = 4.93406 Mbytes
+    Step    Atoms         KinEng              1          ts[1]          ts[2]         Volume 
+       0        0              0              0              0              0           0.18 
+INFO: Particle insertion ins: inserted 2 particle templates (mass 9.201859e-02) at step 1
+ - a total of 2 particle templates (mass 9.201859e-02) inserted so far.
+       1      100     0.04601381              0              0              0           0.18 
+Loop time of 0.000823586 on 1 procs for 1 steps with 100 atoms, finish time Tue Sep  1 22:41:39 2026
+
+
+Pair  time (%) = 1.444e-06 (0.175331)
+Neigh time (%) = 0.00019394 (23.5482)
+Comm  time (%) = 1.039e-06 (0.126156)
+Outpt time (%) = 8.103e-06 (0.983868)
+Other time (%) = 0.00061906 (75.1664)
+
+Nlocal:    100 ave 100 max 100 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:    0 ave 0 max 0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:    0 ave 0 max 0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 0
+Ave neighs/atom = 0
+Neighbor list builds = 1
+Dangerous builds = 0
+
+#insert the first particles so that dump is not empty
+dump		dmp all custom/vtk 200 post/multi_*.vtk id type mol x y z vx vy vz fx fy fz omegax omegay omegaz radius
+
+#insert particles
+run		40000 upto
+Setting up run at Tue Sep  1 22:41:39 2026
+
+WARNING: Energy calculated for multisphere particles is currently not correct (/home/aestupinan/Programs/LIGGGHTS-PUBLIC/src/fix_multisphere.cpp:1312)
+Memory usage per processor = 8.6389 Mbytes
+    Step    Atoms         KinEng              1          ts[1]          ts[2]         Volume 
+       1      100     0.04601381              0              0              0           0.18 
+    1000      100    0.055474139              0    0.039839044    0.016256736           0.18 
+    2000      100    0.065829047              0    0.039839044    0.016537355           0.18 
+    3000      100    0.077069506              0    0.039839044    0.016800126           0.18 
+    4000      100    0.089195516              0    0.039839044    0.017047417           0.18 
+    5000      100     0.10220708              0    0.039839044     0.01728114           0.18 
+    6000      100     0.11610419              0    0.039839044    0.017502862           0.18 
+    7000      100     0.13088685              0    0.039839044    0.017713888           0.18 
+    8000      100     0.14655507              0    0.039839044    0.017915312           0.18 
+    9000      100     0.16310883              0    0.039839044    0.018108065           0.18 
+   10000      100     0.18054815              0    0.039839044    0.018292943           0.18 
+   11000      100     0.19887301              0    0.039839044    0.018470637           0.18 
+   12000      100     0.21808343              0    0.039839044    0.018641745           0.18 
+   13000      100      0.2381794              0    0.039839044    0.018806791           0.18 
+   14000      100     0.25916092              0    0.039839044     0.01896624           0.18 
+   15000      100     0.15112761              0    0.039839044      0.0191205           0.18 
+   16000      100   0.0058649667              0    0.039839044    0.014086006           0.18 
+   17000      100   0.0033924677              0    0.039839044    0.013579131           0.18 
+   18000      100   0.0018055198              0    0.039839044    0.013006705           0.18 
+   19000      100   0.0011041229              0    0.039839044    0.012386051           0.18 
+   20000      100    0.001288277              0    0.039839044    0.012699797           0.18 
+   21000      100   0.0023579822              0    0.039839044    0.013255987           0.18 
+   22000      100   0.0043132385              0    0.039839044    0.013794878           0.18 
+   23000      100   0.0071540458              0    0.039839044    0.014276699           0.18 
+   24000      100   0.0024644504              0    0.039839044    0.013847477           0.18 
+   25000      100   0.0011951459              0    0.039839044    0.012631899           0.18 
+   26000      100  0.00084623009              0    0.039839044    0.012067092           0.18 
+   27000      100  0.00088038777              0    0.039839044    0.012252333           0.18 
+   28000      100   0.0013334112              0    0.039839044    0.012900264           0.18 
+   29000      100   0.0013555643              0    0.039839044    0.013235396           0.18 
+   30000      100   0.0012056973              0    0.039839044    0.013061049           0.18 
+   31000      100   0.0012863312              0    0.039839044    0.013058486           0.18 
+   32000      100   0.0011453919              0    0.039839044    0.012701499           0.18 
+   33000      100   0.0011780309              0    0.039839044    0.012641739           0.18 
+   34000      100   0.0013047864              0    0.039839044    0.012871682           0.18 
+   35000      100   0.0015826296              0    0.039839044    0.013137181           0.18 
+   36000      100   0.0020361389              0    0.039839044    0.013488824           0.18 
+   37000      100   0.0027098342              0    0.039839044    0.013881978           0.18 
+   38000      100   0.0019840702              0    0.039839044    0.013278383           0.18 
+   39000      100   0.0018206848              0    0.039839044    0.013105108           0.18 
+   40000      100   0.0010140732              0    0.039839044    0.012553753           0.18 
+Loop time of 0.407076 on 1 procs for 39999 steps with 100 atoms, finish time Tue Sep  1 22:41:39 2026
+
+
+Pair  time (%) = 0.0263179 (6.46511)
+Neigh time (%) = 0.0272833 (6.70227)
+Comm  time (%) = 0.00143145 (0.351642)
+Outpt time (%) = 0.149629 (36.757)
+Other time (%) = 0.202414 (49.724)
+
+Nlocal:    100 ave 100 max 100 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:    0 ave 0 max 0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:    0 ave 0 max 0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 0
+Ave neighs/atom = 0
+Neighbor list builds = 180
+Dangerous builds = 0
