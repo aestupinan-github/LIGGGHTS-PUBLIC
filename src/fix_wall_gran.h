@@ -228,8 +228,11 @@ class FixWallGran : public Fix, public LIGGGHTS::IContactHistorySetup {
   // persistent variables for model and scaling parameters
   torch::jit::script::Module surrogate_model;
   bool surrogate_loaded = false;
-  double y_mean[4] = {0.0, 0.0, 0.0, 0.0};
-  double y_scale[4] = {1.0, 1.0, 1.0, 1.0};
+  //double y_mean[4] = {0.0, 0.0, 0.0, 0.0};
+  //double y_scale[4] = {1.0, 1.0, 1.0, 1.0};
+  double y_mean  = 0.0;
+  double y_scale = 1.0;
+  double eps = 1e-15;
 
   // /////////////////////////////////////////////////////
 

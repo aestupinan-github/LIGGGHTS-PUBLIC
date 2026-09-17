@@ -216,6 +216,8 @@ namespace ContactModels
       #endif
       const double meff=sidata.meff;
 
+      std::cout<<"deltan from HERTZ: "<<sidata.deltan <<std::endl;
+
       if(sidata.deltan < 0)
         error->one(FLERR, "sidata.deltan < 0!");
       const double sqrtval = sqrt(reff*sidata.deltan);

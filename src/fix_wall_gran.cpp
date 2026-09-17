@@ -680,15 +680,35 @@ void FixWallGran::init()
           }
 
           std::string line;
-          while (std::getline(file, line)) {
-            std::stringstream ss(line);
-            std::string key;
-            ss >> key;
-            if (key == "y_mean") {
-              ss >> y_mean[0] >> y_mean[1] >> y_mean[2] >> y_mean[3];
-            } else if (key == "y_scale") {
-              ss >> y_scale[0] >> y_scale[1] >> y_scale[2] >> y_scale[3];
-            }
+          bool found_y_mean = false;
+          bool found_y_scale = false;
+
+          while(std::getline(file, line))
+          {
+              if(line == "y_mean")
+              {
+                  std::getline(file, line);
+                  y_mean = std::stod(line);
+                  found_y_mean = true;
+              }
+              if(line == "y_scale")
+              {
+                  std::getline(file, line);
+                  y_scale = std::stod(line);
+                  found_y_scale = true;
+              }
+              if(line == "eps")
+              {
+                  std::getline(file, line);
+                  eps = std::stod(line);
+              }
+          }
+          if(!found_y_mean || !found_y_scale)
+          {
+              std::cerr
+                  << "Invalid scaler data (expected scalar y_mean/y_scale "
+                  << "for log10(overlap))\n";
+              error;
           }
           file.close();
           surrogate_loaded = true;
@@ -696,6 +716,9 @@ void FixWallGran::init()
         } catch (const c10::Error& e) {
           error->fix_error(FLERR, this, "Failed loading overlap_model.pt or scalers.dat");
         }
+
+        surrogate_model.eval();
+        std::cout <<"Torch Model loaded\n";
       }
 
 
@@ -1127,79 +1150,6 @@ void FixWallGran::post_force_primitive(int vflag)
 
 //AED
 
-//    double **x = atom->x;
-//    double **quat = atom->quaternion;
-//    int *mask = atom->mask;
-//    int nlocal = atom->nlocal;
-
-//    std::vector<int> valid_indices;
-//    valid_indices.reserve(nlocal);
-//    for (int i = 0; i < nlocal; i++) {
-//        if (mask[i] & groupbit) valid_indices.push_back(i);
-//    }
-
-//    int num_active = valid_indices.size();
-//    if (num_active == 0) return;
-
-//    // ---- float, consistently ----
-//    std::vector<float> input_buffer(num_active * 5);
-//    for (int idx = 0; idx < num_active; idx++) {
-//        int i = valid_indices[idx];
-//        int offset = idx * 5;
-
-//        // NOTE: subtract wall height if primitive zplane != 0 (see earlier discussion)
-//        input_buffer[offset + 0] = static_cast<float>(x[i][2]);
-//        input_buffer[offset + 1] = static_cast<float>(quat[i][0]);
-//        input_buffer[offset + 2] = static_cast<float>(quat[i][1]);
-//        input_buffer[offset + 3] = static_cast<float>(quat[i][2]);
-//        input_buffer[offset + 4] = static_cast<float>(quat[i][3]);
-//    }
-
-//    torch::Tensor inputs_tensor = torch::from_blob(
-//        input_buffer.data(), {num_active, 5}, torch::kFloat32
-//    );
-
-//    torch::Tensor outputs_tensor;
-//    {
-//        torch::NoGradGuard no_grad;
-//        outputs_tensor = surrogate_model.forward({inputs_tensor}).toTensor();
-//    }
-
-//    auto raw_ptr = outputs_tensor.accessor<float, 2>();   // float, matching model
-
-//    SurrogateContactData sudata;
-//    double v_wall[3] = {0.0, 0.0, 0.0};
-
-//    for (int idx = 0; idx < num_active; idx++) {
-//        int i = valid_indices[idx];
-
-//        // Inverse StandardScaler only (no log step -- this model was trained
-//        // directly on raw overlap/normal components, per the dataset generator)
-//        double deltan_local = (static_cast<double>(raw_ptr[idx][0]) * y_scale[0]) + y_mean[0];
-//        double nx_local = (static_cast<double>(raw_ptr[idx][1]) * y_scale[1]) + y_mean[1];
-//        double ny_local = (static_cast<double>(raw_ptr[idx][2]) * y_scale[2]) + y_mean[2];
-//        double nz_local = (static_cast<double>(raw_ptr[idx][3]) * y_scale[3]) + y_mean[3];
-
-//        std::cout<<"OVERLAP: "<<deltan_local<<std::endl;
-
-//        if (deltan_local <= 0.0) continue;
-
-//        // Rotate local-frame normal back into world frame using current quaternion
-//        double q0 = quat[i][0], q1 = quat[i][1], q2 = quat[i][2], q3 = quat[i][3];
-//        double world_normal[3];
-//        // Standard quaternion rotation of vector (q0,q1,q2,q3 = w,x,y,z convention --
-//        // CONFIRM this matches LIGGGHTS's actual quaternion storage order before trusting it)
-//        //MathExtra::q_rotate_vector(quat[i], (double[]){nx_local, ny_local, nz_local}, world_normal);
-//        // ^ or your project's existing quaternion-rotation helper, if MathExtra isn't linked here
-
-//        sudata.is_non_spherical = true;
-//        sudata.i = i;
-//        sudata.deltan = deltan_local;
-//        sudata.delta[0] = deltan_local * world_normal[0];
-//        sudata.delta[1] = deltan_local * world_normal[1];
-//        sudata.delta[2] = deltan_local * world_normal[2];
-//    }
-
 
 
     double **x = atom->x;
@@ -1219,7 +1169,8 @@ void FixWallGran::post_force_primitive(int vflag)
     if (num_active == 0) return;
 
     // 2. Build input buffer in UNIT CUBE space [z_unit, qw, qx, qy, qz]
-    std::vector<float> input_buffer(num_active * 5);
+    // std::vector<float> input_buffer(num_active * 5);
+    std::cout<<"num_active aatoms: "<<num_active<<std::endl;
     for (int idx = 0; idx < num_active; idx++) {
         int i = valid_indices[idx];
         int offset = idx * 5;
@@ -1258,91 +1209,57 @@ void FixWallGran::post_force_primitive(int vflag)
             qz = -qz;
         }
 
-        std::cout<<"qw: "<<qw<<", qx: "<<qx<<", qy: "<<qy<<", qz: "<<qz<<std::endl;
+    std::cout<<"qw: "<<qw<<", qx: "<<qx<<", qy: "<<qy<<", qz: "<<qz<<std::endl;
 
-        input_buffer[offset + 0] = static_cast<float>(z_unit);
-        input_buffer[offset + 1] = static_cast<float>(qw);
-        input_buffer[offset + 2] = static_cast<float>(qx);
-        input_buffer[offset + 3] = static_cast<float>(qy);
-        input_buffer[offset + 4] = static_cast<float>(qz);
-    }
+
 
     // 3. LibTorch Forward Pass
-    torch::Tensor inputs_tensor = torch::from_blob(
-        input_buffer.data(), {num_active, 5}, torch::kFloat32
-    ).clone();
+    torch::Tensor inputs_tensor = torch::tensor(
+        {{ z_unit, qw, qx, qy, qz }},
+        torch::kFloat32
+        );
 
-    torch::Tensor outputs_tensor;
-    {
-        torch::NoGradGuard no_grad;
-        outputs_tensor = surrogate_model.forward({inputs_tensor}).toTensor();
-    }
+    std::vector<torch::jit::IValue> inputs;
+    inputs.push_back(inputs_tensor);
+    torch::Tensor outputs_tensor = surrogate_model.forward(inputs).toTensor();
 
-    auto raw_ptr = outputs_tensor.accessor<float, 2>();
+    // Model output: single scalar log10(overlap), scaled
+    float log_overlap_scaled = outputs_tensor[0][0].item<float>();
 
-    const double eps = 1e-15;
-    SurrogateContactData sudata;
+    double log_overlap = static_cast<double>(log_overlap_scaled) * y_scale + y_mean;
+    double deltan_unit = std::pow(10.0, log_overlap) - eps;
 
-    // 4. Invert log10 transformation AND scale back by L_actual
-    for (int idx = 0; idx < num_active; idx++) {
-        int i = valid_indices[idx];
-        double L_actual = 2.0 * shape[i][0];
-
-        // De-scale log10(overlap_unit)
-        double log_overlap_norm = static_cast<double>(raw_ptr[idx][0]);
-        double log_overlap_unit = (log_overlap_norm * y_scale[0]) + y_mean[0];
-
-        // Base-10 inverse transform to get dimensionless unit overlap
-        double deltan_unit = std::pow(10.0, log_overlap_unit) - eps;
-
-        // Scale unit overlap back to physical meters
-        double deltan_phys = deltan_unit * L_actual;
-
-        // add a cut-off
-        if (deltan_phys<1e-15)
-        {
-          deltan_phys=0.0;
-        std::cout<<"OVERLAP ML: "<<deltan_phys<<std::endl;
-        std::cout<<"OVERLAP RATIO: "<<std::endl;
-        }
-        else
-        {
-          std::cout<<"OVERLAP ML: "<<deltan_phys<<std::endl;
-          std::cout<<"OVERLAP RATIO: "<<deltan/deltan_phys<<std::endl;
-        }
-        std::cout<<"-------------------------------------"<<std::endl;
+     if(deltan_unit < 0.0) deltan_unit = 0.0;
 
 
 
-        if (deltan_phys <= 1e-12) continue;
+     // Scale unit overlap back to physical meters
+     double deltan_phys = deltan_unit * L_actual;
 
-        // Normal vectors are unit direction vectors (scale-invariant)
-        double local_normal[3] = {
-            (static_cast<double>(raw_ptr[idx][1]) * y_scale[1]) + y_mean[1],
-            (static_cast<double>(raw_ptr[idx][2]) * y_scale[2]) + y_mean[2],
-            (static_cast<double>(raw_ptr[idx][3]) * y_scale[3]) + y_mean[3]
-        };
 
-        double n_mag = std::sqrt(local_normal[0]*local_normal[0] +
-                                 local_normal[1]*local_normal[1] +
-                                 local_normal[2]*local_normal[2]);
-        if (n_mag > 0.0) {
-            local_normal[0] /= n_mag;
-            local_normal[1] /= n_mag;
-            local_normal[2] /= n_mag;
-        }
+     // add a cut-off
+     if (deltan_phys<1e-15)
+     {
+         deltan_phys=0.0;
+         std::cout<<"OVERLAP ML: "<<deltan_phys<<std::endl;
+         std::cout<<"OVERLAP RATIO: "<<std::endl;
+     }
+     else
+     {
+         std::cout<<"OVERLAP ML: "<<deltan_phys<<std::endl;
+         std::cout<<"OVERLAP RATIO: "<<deltan/deltan_phys<<std::endl;
+     }
+     std::cout<<"-------------------------------------"<<std::endl;
 
-        double world_normal[3];
-//        MathExtra::q_rotate_vector(quat[i], local_normal, world_normal);
 
-        // Populate contact data structure in physical units
-        sudata.is_non_spherical = true;
-        sudata.i = i;
-        sudata.deltan = deltan_phys;
-        sudata.delta[0] = deltan_phys * world_normal[0];
-        sudata.delta[1] = deltan_phys * world_normal[1];
-        sudata.delta[2] = deltan_phys * world_normal[2];
-    }
+     }
+
+
+
+    // SurrogateContactData sudata;
+
+
+
 
 
 
