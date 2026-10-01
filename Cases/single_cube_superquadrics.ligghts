@@ -9,7 +9,7 @@ newton          off
 communicate     single vel yes
 
 units           si
-region          domain block -0.05 0.05 -0.05 0.05 0.0 0.10 units box
+region          domain block -0.5 0.5 -0.5 0.5 0.0 0.50 units box
 create_box      1 domain
 
 neighbor        0.002 bin
@@ -28,7 +28,7 @@ fix             m5 all property/global characteristicVelocity scalar 2.
 pair_style      gran model hertz tangential history surface superquadric
 pair_coeff      * *
 
-timestep        0.000001
+timestep        1e-6
 
 # ------------------------------------------------------------
 # Superquadric Particle Template (1 cm cube, blockiness = 5)
@@ -36,14 +36,14 @@ timestep        0.000001
 fix             pts1 all particletemplate/superquadric 15485863 &
                 atom_type 1 density constant 2500 &
                 shape constant 0.005 0.005 0.005 &
-                blockiness constant 5.0 5.0
+                blockiness constant 10.0 10.0
 
 fix             pdd1 all particledistribution/discrete 32452843 1 pts1 1.0
 
 # ------------------------------------------------------------
 # Particle Insertion Setup (Velocity set directly at insertion)
 # ------------------------------------------------------------
-region          reg_ins block -0.001 0.001 -0.001 0.001 0.03 0.031 units box
+region          reg_ins block -0.001 0.001 -0.001 0.001 0.01 0.011 units box
 
 fix             ins all insert/pack seed 32452867 &
                 distributiontemplate pdd1 &
@@ -61,7 +61,7 @@ fix             grav all gravity 9.81 vector 0.0 0.0 -1.0
 # Wall definition
 fix             wall1 all wall/gran model hertz tangential history &
                 surface superquadric primitive type 1 zplane 0.0
-                
+
 
 thermo_style    custom step atoms time ke
 thermo          1000
@@ -71,23 +71,23 @@ thermo_modify   lost ignore norm no
 run 1
 
 # Apply orientation and zero angular velocity
-#set group all quat 0.6830 0.1830 0.7071 -0.3118
-#set group all omegax 0.0 omegay 0.0 omegaz 0.0
+set group all quat 0.8660254 0.2886751 0.2886751 0.2886751
+set group all omegax 0.0 omegay 0.0 omegaz 0.0
 
 # Apply FLAT orientation (Identity Quaternion) and zero angular velocity
-set group all quat 1.0 0.0 0.0 0.0
-set group all omegax 0.0 omegay 0.0 omegaz 0.0
+#set group all quat 1.0 0.0 0.0 0.0
+#set group all omegax 0.0 omegay 0.0 omegaz 0.0
 
 
 # Unfix insertion
 unfix ins
 
 # Start VTK output AFTER orientation setup
-dump    dmp  all custom/vtk 1 post_2X/supercube_*.vtk id type x y z vx vy vz fx fy fz omegax omegay omegaz quat1 quat2 quat3 quat4
+dump    dmp  all custom/vtk 200 post_2X_MLC/supercube_*.vtk id type x y z vx vy vz fx fy fz omegax omegay omegaz quat1 quat2 quat3 quat4
 
-#dump dmp1 all custom 1 post/dump_*.supercube       id type x y z vx vy vz fx fy fz omegax omegay omegaz quat1 quat2 quat3 quat4
- 
+
+
 
 
 # Main run loop
-run             25000 upto
+run             500000 upto

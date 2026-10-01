@@ -1144,13 +1144,13 @@ void FixWallGran::post_force_primitive(int vflag)
     }
     //AED: THIS IS THE OVERLAP COMPUTATION FUNCTION FOR SPHERES / MULTISPHERE CLUSTERS:
     deltan = primitiveWall_->resolveContact(x_[iPart], sidata.radi, delta);
-    std::cout<<"OVERLAP liggghts M: "<<deltan<<std::endl;
+    // std::cout<<"OVERLAP liggghts M: "<<deltan<<std::endl;
 
 
 
 //AED
-
-
+#ifdef I_DONT_WANT_TO_USE_THIS_NOW
+if(atom->superquadric_flag) {
 
     double **x = atom->x;
     double **quat = atom->quaternion;
@@ -1170,7 +1170,7 @@ void FixWallGran::post_force_primitive(int vflag)
 
     // 2. Build input buffer in UNIT CUBE space [z_unit, qw, qx, qy, qz]
     // std::vector<float> input_buffer(num_active * 5);
-    std::cout<<"num_active aatoms: "<<num_active<<std::endl;
+    // std::cout<<"num_active aatoms: "<<num_active<<std::endl;
     for (int idx = 0; idx < num_active; idx++) {
         int i = valid_indices[idx];
         int offset = idx * 5;
@@ -1181,11 +1181,11 @@ void FixWallGran::post_force_primitive(int vflag)
         // Convert physical z-distance to unit cube z-distance (dimensionless)
         double z_phys = x[i][2] - 0.0;
         double z_unit = z_phys / L_actual;
-        std::cout<<"z_phys: "<<z_phys<<std::endl;
-        std::cout<<"z_unit: "<<z_unit<<std::endl;
+        // std::cout<<"z_phys: "<<z_phys<<std::endl;
+        // std::cout<<"z_unit: "<<z_unit<<std::endl;
 
-
-        std::cout<<"OVERLAP anal: "<<z_phys - L_actual/2<<std::endl;
+        // only valid for flat cube quat = 1 0 0 0
+        //std::cout<<"OVERLAP anal: "<<z_phys - L_actual/2<<std::endl;
 
         if (z_phys < L_actual/2)
           std::cout<<"Eureka!"<<std::endl;
@@ -1209,7 +1209,7 @@ void FixWallGran::post_force_primitive(int vflag)
             qz = -qz;
         }
 
-    std::cout<<"qw: "<<qw<<", qx: "<<qx<<", qy: "<<qy<<", qz: "<<qz<<std::endl;
+    //std::cout<<"qw: "<<qw<<", qx: "<<qx<<", qy: "<<qy<<", qz: "<<qz<<std::endl;
 
 
 
@@ -1238,38 +1238,28 @@ void FixWallGran::post_force_primitive(int vflag)
 
 
      // add a cut-off
-     if (deltan_phys<1e-15)
-     {
-         deltan_phys=0.0;
-         std::cout<<"OVERLAP ML: "<<deltan_phys<<std::endl;
-         std::cout<<"OVERLAP RATIO: "<<std::endl;
-     }
-     else
-     {
-         std::cout<<"OVERLAP ML: "<<deltan_phys<<std::endl;
-         std::cout<<"OVERLAP RATIO: "<<deltan/deltan_phys<<std::endl;
-     }
-     std::cout<<"-------------------------------------"<<std::endl;
+     // if (deltan_phys<1e-15)
+     // {
+     //     deltan_phys=0.0;
+     //     std::cout<<"OVERLAP ML: "<<deltan_phys<<std::endl;
+     //     std::cout<<"OVERLAP RATIO: "<<std::endl;
+     // }
+     // else
+     // {
+     //     std::cout<<"OVERLAP ML: "<<deltan_phys<<std::endl;
+     //     std::cout<<"OVERLAP RATIO: "<<deltan/deltan_phys<<std::endl;
+     // }
+     // std::cout<<"-------------------------------------"<<std::endl;
 
 
-     }
+      }
 
 
 
     // SurrogateContactData sudata;
-
-
-
-
-
-
-#ifndef SUPERQUADRIC_ACTIVE_FLAG
-std::cout << "DEBUG: SUPERQUADRIC_ACTIVE_FLAG is NOT defined!" << std::endl;
+}
 #endif
 
-#ifndef SUPERQUADRIC_ACTIVE_FLAG
-std::cout << "DEBUG: SUPERQUADRIC_ACTIVE_FLAG is NOT defined!" << std::endl;
-#endif
 
 
 
@@ -1306,11 +1296,76 @@ std::cout << "DEBUG: SUPERQUADRIC_ACTIVE_FLAG is NOT defined!" << std::endl;
                 if(std::isnan(vectorMag3D(point_of_lowest_potential)))
                   error->fix_error(FLERR,this,"point_of_lowest_potential is NaN!");
             #endif
+
+            // AED: THis is the surrogate call:
+                double deltan_surro = 0.0;
+                double qw = 0.0;
+                double qx = 0.0;
+                double qy = 0.0;
+                double qz = 0.0;
+                double z_phys = 0.0;
+                double z_unit = 0.0;
+                if (atom->superquadric_flag) {
+
+                    double **x    = atom->x;
+                    double **quat = atom->quaternion;
+                    double **shape = atom->shape;
+
+                    // No inner loop over nlocal needed — iPart is already fixed
+                    // by the outer per-contact loop.
+
+                    const double L_actual = 2.0 * shape[iPart][0];
+                    z_phys   = x[iPart][2] - 0.0;
+                    z_unit   = z_phys / L_actual;
+
+                    qw = quat[iPart][0];  qx = quat[iPart][1]; qy = quat[iPart][2]; qz = quat[iPart][3];
+                    //qx = quat[iPart][0]; qy = quat[iPart][1]; qz = quat[iPart][2]; qw = quat[iPart][3];
+
+                    if (qw < 0.0) {
+                        qw = -qw; qx = -qx; qy = -qy; qz = -qz;
+                    }
+
+                    torch::Tensor inputs_tensor = torch::tensor(
+                        {{ static_cast<float>(z_unit),
+                          static_cast<float>(qw),
+                          static_cast<float>(qx),
+                          static_cast<float>(qy),
+                          static_cast<float>(qz) }},
+                        torch::kFloat32
+                        );
+
+                    torch::Tensor outputs_tensor;
+                    {
+                        torch::NoGradGuard no_grad;
+                        outputs_tensor = surrogate_model.forward({inputs_tensor}).toTensor();
+                    }
+
+                    const float log_overlap_scaled = outputs_tensor[0][0].item<float>();
+                    const double log_overlap = static_cast<double>(log_overlap_scaled) * y_scale + y_mean;
+
+                    double overlap_unit = std::pow(10.0, log_overlap) - eps;
+                    if (overlap_unit < 0.0) overlap_unit = 0.0;
+
+                    const double overlap_surrogate = overlap_unit * L_actual;
+
+                    // This is the line that was missing: write the result into `deltan`
+                    // so the rest of post_force_primitive() actually uses it.
+                    deltan_surro = -overlap_surrogate;
+                }
             //AED: THIS IS THE OVERLAP COMPUTATION FUNCTION FOR SUPERQUADRICS:
-            deltan = -MathExtraLiggghtsNonspherical::point_wall_projection(delta, sphere_contact_point, closestPoint, closestPointProjection);
-            std::cout<<"OVERLAP liggghts Sq: "<<deltan<<std::endl;
-            std::cout<<"-------------------------------------"<<std::endl;
-            std::cout<<" "<<std::endl;
+            deltan = -100*MathExtraLiggghtsNonspherical::point_wall_projection(delta, sphere_contact_point, closestPoint, closestPointProjection);
+
+            // std::cout<<"-------------------------------------"<<std::endl;
+            // std::cout<<"z_phys: "<<z_phys<<std::endl;
+            // std::cout<<"z_unit: "<<z_unit<<std::endl;
+            // std::cout<<"qw(), qx(), qy(), qz(): "<<qw<<", "<<qx<<", "<<qy<<", "<<qz<<std::endl;
+
+            // std::cout<<"OVERLAPSurrogate: "<<deltan_surro <<std::endl;
+            // std::cout<<"OVERLAPSuperquadric : "<<deltan<<std::endl;
+            // std::cout<<"Abs. ERR."<<(deltan-deltan_surro)<<std::endl;
+
+
+            //deltan = deltan_surro;
 
             #ifdef LIGGGHTS_DEBUG
                 if(std::isnan(deltan))
@@ -1346,7 +1401,7 @@ std::cout << "DEBUG: SUPERQUADRIC_ACTIVE_FLAG is NOT defined!" << std::endl;
       }
 
       if(!sidata.is_non_spherical || atom->superquadric_flag)
-        sidata.deltan   = -deltan;
+      sidata.deltan   = -deltan;
       sidata.delta[0] = -delta[0];
       sidata.delta[1] = -delta[1];
       sidata.delta[2] = -delta[2];

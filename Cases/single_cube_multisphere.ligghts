@@ -49,14 +49,16 @@ fix		pts1 all particletemplate/multisphere 15485863 atom_type 1 &
 fix		pdd1 all particledistribution/discrete 15485867 1 pts1 1.0
 
 # Insertion box
-region		bc block -0.02 0.02 -0.02 0.02 0.02 0.06 units box
+#region		bc block -0.02  0.02  -0.02  0.02  0.02  0.06  units box
+region      bc block -0.02  0.02  -0.02  0.02  0.01 0.011 units box
+
 
 # volumefraction_region 0.015625 targets exactly 1 cube insertion
 #fix		ins all insert/pack seed 32452843 distributiontemplate pdd1 vel constant 0. 0. -1. &
 #		insert_every once overlapcheck yes region bc ntry_mc 100000 volumefraction_region 0.015625
 
 # volumefraction_region 0.007 guarantees inserting exactly 1 cube
-fix		ins all insert/pack seed 32452843 distributiontemplate pdd1 vel constant 0. 0. -1. &
+fix		ins all insert/pack seed 32452843 distributiontemplate pdd1 vel constant 0.0 0.0 -2.0 &
 		insert_every once overlapcheck yes region bc ntry_mc 100000 volumefraction_region 0.007
 
 fix		integr all multisphere
@@ -76,6 +78,7 @@ run 1
 # Rotate all atoms by 45 degrees around X-axis centered at (0, 0, 0.03)
 #displace_atoms all rotate 0.0 0.0 0.03 1.0 0.0 0.0 45.0
 
-dump		dmp all custom/vtk 2000 post/cube_*.vtk id type mol x y z vx vy vz fx fy fz omegax omegay omegaz radius
+#dump           dmp all custom/vtk 2000 post/cube_*.vtk id type mol x y z vx vy vz fx fy fz omegax omegay omegaz radius
+dump            dmp all custom/vtk 1    post/cube_*.vtk id type mol x y z vx vy vz fx fy fz omegax omegay omegaz radius
 
-run		400000 upto
+run		25000 upto

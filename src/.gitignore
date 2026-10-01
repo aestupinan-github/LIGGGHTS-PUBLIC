@@ -1,4 +1,5 @@
 Obj*/*
+Cases/*
 style_*
 lmp_*
 version_liggghts.h
@@ -15,4 +16,6 @@ STUBS/libmpi_stubs.a
 STUBS/mpi.o
 MAKE/auto_backup/*
 build/
-
+src/.qtc_clangd/
+src/LiggghtsPublic.*
+.gitignore

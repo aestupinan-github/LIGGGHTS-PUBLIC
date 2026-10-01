@@ -216,7 +216,11 @@ namespace ContactModels
       #endif
       const double meff=sidata.meff;
 
-      std::cout<<"deltan from HERTZ: "<<sidata.deltan <<std::endl;
+      // AED
+      // std::cout<<"deltan from HERTZ: "<<-sidata.deltan <<std::endl;
+      // std::cout<<"-------------------------------------"<<std::endl;
+      // std::cout<<" "<<std::endl;
+
 
       if(sidata.deltan < 0)
         error->one(FLERR, "sidata.deltan < 0!");
