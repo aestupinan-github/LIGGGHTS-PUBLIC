@@ -1,0 +1,43 @@
+# Doxyfile — LIGGGHTS-PUBLIC Surrogate Shape Project
+
+PROJECT_NAME           = "LIGGGHTS-PUBLIC Surrogate Shape"
+PROJECT_NUMBER         = 3.8.0
+PROJECT_BRIEF          = "DEM particle simulation with ML surrogate contact models"
+
+OUTPUT_DIRECTORY       = doc/doxygen
+CREATE_SUBDIRS         = NO
+OUTPUT_LANGUAGE        = English
+BRIEF_MEMBER_DESC      = YES
+REPEAT_BRIEF           = YES
+ALWAYS_DETAILED_SEC    = NO
+INLINE_INHERITED_MEMB  = NO
+FULL_PATH_NAMES        = YES
+STRIP_PATH_NAMES       = YES
+STRIP_FROM_PATH        = src/
+STRIP_FROM_INC_PATH    = src/
+
+INPUT                  = src/ specs/
+INPUT_ENCODING         = UTF-8
+FILE_PATTERNS          = *.cpp *.h *.md
+RECURSIVE              = YES
+
+EXCLUDE                = src/style_*.h
+EXCLUDE                = src/MAKE/
+EXCLUDE                = lib/
+
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+GENERATE_LATEX         = NO
+
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = NO
+SEARCH_INCLUDES        = YES
+
+USE_MDFILE_AS_MAINPAGE = specs/00-surrogate-interface-contract/requirements.md
+
+QUIET                  = YES
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = YES
+WARN_IF_DOC_ERROR      = YES
+WARN_NO_PARAMDOC       = YES
