@@ -48,3 +48,17 @@ build/liggghts -in examples/LIGGGHTS/Tutorials_public/cohesion/in.cohesion
 **Purpose**: Add a new particle shape family — "surrogate" (`atom_style surrogate`) — whose wall/particle overlap is predicted by a trained ML surrogate (LibTorch), analogous to how superquadrics work. The surrogate replaces the **geometric** contact calculation (overlap, contact point, normal); physics models (Hertz, Hooke, etc.) remain unchanged.
 
 **Non-negotiable rules**: See `CONSTITUTION.md` — automatically interpreted and enforced at session start.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live as markdown files under `.scratch/<feature>/` in this repo (local markdown). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical roles map to the same label strings. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.

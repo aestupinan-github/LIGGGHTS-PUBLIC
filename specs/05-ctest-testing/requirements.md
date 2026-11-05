@@ -60,10 +60,16 @@ The project currently has no automated testing. The CI workflow runs `ctest` but
 - RF-12: THE SYSTEM SHALL support test-first development: a test may be written before the corresponding implementation exists.
 - RF-13: IF a test fails, THEN THE SYSTEM SHALL provide sufficient diagnostic output to identify the cause.
 - RF-14: THE SYSTEM SHALL support regression tests for critical existing functionality.
+- RF-15: (Surrogate-specific) THE SYSTEM SHALL include unit tests for quaternion canonicalization (q and -q both map to canonical form)
+- RF-16: (Surrogate-specific) THE SYSTEM SHALL include unit tests for denormalization formula (10^x - eps round-trips correctly)
+- RF-17: (Surrogate-specific) THE SYSTEM SHALL include unit tests for nondimensionalization rescaling (z_unit and L_actual rescaling is exact)
+- RF-18: (Surrogate-specific) THE SYSTEM SHALL include integration tests that load both run_029 (Option 4) and run_030 (Option 1) models and verify model_type detection
+- RF-19: (Surrogate-specific) THE SYSTEM SHALL include integration tests that exercise full inference pipeline (input preparation → model query → denormalization → rescaling)
+- RF-20: (Surrogate-specific) THE SYSTEM SHALL include error handling tests (invalid input, missing model, corrupt scaler file, model inference failure)
 
 ## Numerical and Physical Requirements
 
-- NR-1: THE SYSTEM SHALL use a default tolerance of 1e-6 for integration tests unless overridden per-test.
+- NR-1: THE SYSTEM SHALL use a default tolerance of 1e-4 for integration tests (surrogate MAE is ~6.1e-5; tolerance = MAE + 2σ margin). Per-test override allowed for stricter/looser tolerances.
 - NR-2: WHEN comparing floating-point values, THE SYSTEM SHALL use relative error, absolute error, or a combination thereof, as appropriate for the quantity being tested.
 - NR-3: THE SYSTEM SHALL document the tolerance and comparison method for each test.
 - NR-4: THE SYSTEM SHALL produce deterministic results for tests that do not involve random number generation.
