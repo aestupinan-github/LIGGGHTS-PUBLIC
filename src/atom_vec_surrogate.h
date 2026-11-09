@@ -62,8 +62,9 @@ class AtomVecSurrogate : public AtomVec {
   AtomVecSurrogate(class LAMMPS *);
   ~AtomVecSurrogate() {}
   
-  void init();
-  void grow(int);
+   void init();
+   void register_shape(const char *);
+   void grow(int);
   void grow_reset();
   void copy(int, int, int);
   

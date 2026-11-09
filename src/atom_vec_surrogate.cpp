@@ -44,6 +44,58 @@ AtomVecSurrogate::AtomVecSurrogate(LAMMPS *lmp) : AtomVec(lmp)
 void AtomVecSurrogate::init()
 {
   AtomVec::init();
+  
+#ifdef SURROGATE_ACTIVE_FLAG
+  // Validate shape database at initialization
+  if (atom->surrogate_shape_names.empty()) {
+    error->one(FLERR, "atom_style surrogate requires shape registration via atom_style command");
+  }
+  if (atom->surrogate_shape_names.size() > 1) {
+    char msg[1024];
+    snprintf(msg, 1024, "Only one surrogate shape type permitted per simulation; found %zu types", 
+             atom->surrogate_shape_names.size());
+    error->one(FLERR, msg);
+  }
+#endif
+}
+
+/* ---------------------------------------------------------------------- */
+
+/**
+ * @brief Register a surrogate shape type
+ * 
+ * Validates shape name, checks for duplicates, and assigns shape_key.
+ * One shape type per simulation (enforced at init() time).
+ * 
+ * @param shape_name Name of shape (e.g., "ss-cube")
+ */
+void AtomVecSurrogate::register_shape(const char *shape_name)
+{
+#ifdef SURROGATE_ACTIVE_FLAG
+  if (!shape_name || strlen(shape_name) == 0) {
+    error->one(FLERR, "atom_style surrogate requires non-empty shape name");
+  }
+
+  // Check for duplicate registration
+  for (size_t i = 0; i < atom->surrogate_shape_names.size(); i++) {
+    if (atom->surrogate_shape_names[i] == std::string(shape_name)) {
+      char msg[1024];
+      snprintf(msg, 1024, "Shape '%s' already registered in this simulation", shape_name);
+      error->one(FLERR, msg);
+    }
+  }
+
+  // Register the shape
+  atom->surrogate_shape_names.push_back(std::string(shape_name));
+  atom->surrogate_shape_keys.push_back(atom->surrogate_shape_current_key);
+  atom->surrogate_shape_current_key++;
+
+  // Log (diagnostic output)
+  if (comm->me == 0) {
+    fprintf(screen, "Registered surrogate shape: %s (key=%d)\n", 
+            shape_name, atom->surrogate_shape_keys.back());
+  }
+#endif
 }
 
 /* ---------------------------------------------------------------------- */

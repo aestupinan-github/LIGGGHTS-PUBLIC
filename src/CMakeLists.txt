@@ -85,6 +85,7 @@ OPTION(ENABLE_FFMPEG "Use ffmpeg"   ${DEFAULT_OFF})
 OPTION(ENABLE_GZIP   "Use gzip"     ${DEFAULT_OFF})
 
 OPTION(ENABLE_SQ  "Use Superquadrics" ${DEFAULT_OFF})
+OPTION(ENABLE_SURROGATE "Use Surrogate Shape models (requires LibTorch)" ${DEFAULT_OFF})
 
 OPTION(ENABLE_SMALLBIG   "Use of 4-byte (small) vs 8-byte (big) integers."        ON)
 OPTION(ENABLE_BIGBIG     "Huge molecular systems with more than 2 billion atoms." OFF)
@@ -488,6 +489,45 @@ IF(ENABLE_SQ)
   ENDIF()
 ELSE()
   SET(DISABLED_OPTIONS "${DISABLED_OPTIONS} SQ")
+ENDIF()
+
+#=======================================
+# LibTorch integration for Surrogate Shape models
+#=======================================
+IF(ENABLE_SURROGATE)
+  # Resolve LIBTORCH_DIR from environment or CMake variable
+  IF(NOT DEFINED LIBTORCH_DIR)
+    SET(LIBTORCH_DIR $ENV{LIBTORCH_DIR})
+  ENDIF()
+
+  IF(LIBTORCH_DIR)
+    # User provided explicit path; add to CMAKE_PREFIX_PATH
+    LIST(APPEND CMAKE_PREFIX_PATH "${LIBTORCH_DIR}")
+    MESSAGE(STATUS "LibTorch search path: ${LIBTORCH_DIR}")
+  ENDIF()
+
+  # Find PyTorch/LibTorch package
+  FIND_PACKAGE(Torch QUIET)
+
+  IF(Torch_FOUND)
+    # Include LibTorch headers
+    INCLUDE_DIRECTORIES(${TORCH_INCLUDE_DIRS})
+    
+    # Add compile definitions for surrogate code
+    TARGET_COMPILE_DEFINITIONS(liggghts_obj PUBLIC SURROGATE_ACTIVE_FLAG)
+    
+    # Link LibTorch libraries
+    TARGET_LINK_LIBRARIES(liggghts_static PUBLIC torch torch_cpu c10)
+    TARGET_LINK_LIBRARIES(liggghts_shared PUBLIC torch torch_cpu c10)
+    TARGET_LINK_LIBRARIES(liggghts_bin PUBLIC torch torch_cpu c10)
+    
+    SET(ENABLED_OPTIONS "${ENABLED_OPTIONS} SURROGATE")
+    MESSAGE(STATUS "Using Surrogate Shape models (LibTorch enabled)")
+  ELSE()
+    MESSAGE(FATAL_ERROR "LibTorch not found. Set LIBTORCH_DIR environment variable or pass -DLIBTORCH_DIR=<path> to cmake. Example: cmake -DLIBTORCH_DIR=/home/user/libtorch -DENABLE_SURROGATE=ON ...")
+  ENDIF()
+ELSE()
+  SET(DISABLED_OPTIONS "${DISABLED_OPTIONS} SURROGATE")
 ENDIF()
 
 #=======================================

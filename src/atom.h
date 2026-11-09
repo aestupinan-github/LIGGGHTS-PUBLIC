@@ -295,6 +295,13 @@ class Atom : protected Pointers {
   void map_delete();
   int map_find_hash(int);
 
+  // Surrogate Shape database (global)
+#ifdef SURROGATE_ACTIVE_FLAG
+  std::vector<std::string> surrogate_shape_names;  ///< Shape names (e.g., "ss-cube")
+  std::vector<int> surrogate_shape_keys;           ///< Parallel vector of shape keys
+  int surrogate_shape_current_key;                 ///< Counter for next shape registration
+#endif
+
  private:
 
   // global to local ID mapping
@@ -332,14 +339,6 @@ class Atom : protected Pointers {
 
   void setup_sort_bins();
   int next_prime(int);
-
-  // Surrogate Shape database (global)
-#ifdef SURROGATE_ACTIVE_FLAG
-  std::vector<std::string> surrogate_shape_names;  ///< Shape names (e.g., "ss-cube")
-  std::vector<int> surrogate_shape_keys;           ///< Parallel vector of shape keys
-  int surrogate_shape_current_key;                 ///< Counter for next shape registration
-#endif
-
 
   class Properties *properties;   
 };

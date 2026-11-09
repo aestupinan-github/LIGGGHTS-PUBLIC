@@ -1,0 +1,15 @@
+format ss_model_record_v1
+run_id run_029
+model_type option4
+input_dtype float64
+input_units canonical_L1
+y_mean 0.0
+y_scale 1.0
+r_circ 0.866025403784
+z_prefilter 1.0
+sd_too_deep -0.1
+h_exact_method analytical_rotation_matrix
+network_input_dim 5
+ref_eval one_row_per_call_float64_cpu
+ref_sd_tol 1e-14
+n_ref 0
