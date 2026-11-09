@@ -47,6 +47,7 @@
 #define LMP_ATOM_H
 
 #include "pointers.h"
+#include <vector>
 
 namespace LAMMPS_NS {
 
@@ -101,6 +102,11 @@ class Atom : protected Pointers {
   double **shape, **blockiness; //half axes and blockiness parameters
   double **inertia, *volume, *area; //components Ix, Iy, Iz
   double **quaternion; //quaternion of current orientation
+//------------------------------------------------------
+
+//Surrogate Shape bonus------------------------------
+  double *characteristic_length; // Per-particle size descriptor (e.g., cube edge length)
+  int *shape_key;                // Index into global shape database
 //------------------------------------------------------
 
   // USR-SMD
@@ -159,6 +165,7 @@ class Atom : protected Pointers {
 
   int sphere_flag,ellipsoid_flag,line_flag,tri_flag,body_flag;
   int superquadric_flag;
+  int surrogate_flag;
   int peri_flag,electron_flag;
   int ecp_flag;
   int wavepacket_flag,sph_flag;
@@ -325,6 +332,14 @@ class Atom : protected Pointers {
 
   void setup_sort_bins();
   int next_prime(int);
+
+  // Surrogate Shape database (global)
+#ifdef SURROGATE_ACTIVE_FLAG
+  std::vector<std::string> surrogate_shape_names;  ///< Shape names (e.g., "ss-cube")
+  std::vector<int> surrogate_shape_keys;           ///< Parallel vector of shape keys
+  int surrogate_shape_current_key;                 ///< Counter for next shape registration
+#endif
+
 
   class Properties *properties;   
 };

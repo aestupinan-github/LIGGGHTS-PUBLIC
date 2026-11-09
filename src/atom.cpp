@@ -170,6 +170,11 @@ Atom::Atom(LAMMPS *lmp) : Pointers(lmp)
 
   sphere_flag = ellipsoid_flag = line_flag = tri_flag = body_flag = 0;
   superquadric_flag = 0;
+  surrogate_flag = 0;
+  
+#ifdef SURROGATE_ACTIVE_FLAG
+  surrogate_shape_current_key = 0;
+#endif
   peri_flag = electron_flag = 0;
   wavepacket_flag = sph_flag = 0;
 
