@@ -4,6 +4,30 @@ Persistent memory for the surrogate shape (ss) project. Updated at the end of ev
 
 ---
 
+## Model and Build Configuration
+
+### Active Model (Phase 3C)
+- **Model:** run_029 (Option 4, 84.7% accuracy)
+- **Location:** `SS_models/ss-cube-walls/`
+  - `model.pt` — Trained LibTorch model
+  - `scalers.dat` — Feature/output scalers (ss_model_record_v1 format)
+- **Scaler Parameters:** y_mean=0.0, y_scale=1.0 (identity scaling on output)
+- **Training Data:** 100k samples (dataset_003), z_unit ∈ [-0.5, 2.0]
+- **Model Accuracy:** MAE = 6.1e-5 (log10 scale)
+
+### Build Configuration
+- **CMake flags** (tested):
+  ```
+  -DCMAKE_BUILD_TYPE=Release
+  -DENABLE_SURROGATE=ON
+  -DLIBTORCH_DIR=/home/su_estupinan@private.list.lu/Programs/libtorch
+  -DENABLE_MPI=ON
+  ```
+- **MPI:** OpenMPI 3.1 required
+- **Binary size:** ~7.3MB (with surrogate support)
+
+---
+
 ## Confirmed Facts
 
 ### Build System
@@ -154,9 +178,83 @@ Persistent memory for the surrogate shape (ss) project. Updated at the end of ev
 
 ## Current Status
 
-- **Phase**: Investigation / spec-writing — COMPLETE; specs drafted but **QA review identifies gaps**
+- **Phase**: Implementation Phase 3C — **IN PROGRESS**
 - **Branch**: `surrogate-shape-dev` (cut from `master`)
 - **Started**: 2026-10-01
 - **Constitution**: `CONSTITUTION.md` created — non-negotiable rules automatically interpreted at session start
-- **QA Review**: 2026-11-05 — 21 specification issues identified; documented and cross-linked to training repo
-- **Next steps**: Resolve QA issues, update specs 00–05, then move to implementation when ready
+- **QA Review**: 2026-11-05 — 21 specification issues resolved; all specs updated
+- **Implementation Start**: 2026-11-10
+
+### Completed Specs (Phase 3C Implementation)
+
+#### ✅ Spec 02: LibTorch Build Integration (COMPLETE)
+- **Tasks:**
+  - T2.1: CMake integration — `ENABLE_SURROGATE` flag, LibTorch discovery, `-DSURROGATE_ACTIVE_FLAG` compile define
+  - T2.2: Path resolver — `src/surrogate_path_resolver.h/cpp` with 4-step fallback (env var → exe dir → source dir → /usr/local)
+  - T2.3: Scaler parser — `src/scaler_parser.h/cpp` parsing ss_model_record_v1 ASCII format (key-value pairs)
+- **Build Status:** Binary 7.0MB; baseline examples (cohesion) verified working
+- **Commit:** `a4fbc5f` (2026-11-09)
+
+#### ✅ Spec 03: Atom Style and Shape Registration (COMPLETE)
+- **Tasks:**
+  - T3.1: Register `atom_style surrogate` via `AtomVecSurrogate` class (2000+ lines)
+    - Per-particle arrays: `surrogate_flag`, `characteristic_length`, `shape_key`, `quaternion`
+    - Shape database: global vectors (`surrogate_shape_names`, `surrogate_shape_keys`, `surrogate_shape_current_key`)
+    - Communication/exchange/restart serialization implemented
+  - T3.2: Shape database initialization — `register_shape(shape_name)` with validation, duplicate checking, Phase 3C one-shape-per-sim enforcement
+  - T3.3: Input syntax parsing — `settings(narg, arg)` override; parses `atom_style surrogate ss-cube`; validates exactly 1 argument
+- **Build Status:** Binary 7.3MB; CMake auto-discovers surrogate style; all tests pass
+- **Commits:** `f5fecb94` (T3.3), earlier commits for T3.1/T3.2
+- **Error Handling:** 
+  - Missing shape name: "Illegal atom_style surrogate command: expected syntax is 'atom_style surrogate <shape_name>'"
+  - Extra arguments: Same error (narg ≠ 1)
+  - Duplicate shape: "Shape '...' already registered in this simulation"
+  - Missing database at init: "atom_style surrogate requires shape registration via atom_style command"
+
+#### ✅ Spec 00: Surrogate Interface Contract (COMPLETE)
+- **Implementation Files:**
+  - `src/surrogate_interface.h` (280 lines) — Low-level math functions
+    - Denormalization: `denormalize_overlap(log10_output, y_mean, y_scale, eps)` → overlap_unit
+    - Physical rescaling: `rescale_overlap_physical(overlap_unit, L_actual)` → overlap_phys
+    - Quaternion canonicalization: `canonicalize_quaternion(quat)` ensures qw ≥ 0
+    - Quaternion normalization: `normalize_quaternion(quat)` defensive unit-norm check
+    - Input validation helpers: `is_z_unit_in_training_range()`, `is_characteristic_length_valid()`, `is_quaternion_valid()`, `is_finite()`
+    - Tensor preparation: `prepare_input_tensor(z_phys, L_actual, quat_input, input_tensor[5])`
+    - All constants: `EPS_DENORM=1e-15`, `Z_UNIT_MIN_TRAIN=-0.5`, `Z_UNIT_MAX_TRAIN=2.0`, `Z_UNIT_EXTRAP_THRESHOLD=10.0`, `LOG10_OVERLAP_MIN_TRAIN=-5.0`, `LOG10_OVERLAP_MAX_TRAIN=0.5`
+  - `src/surrogate_validator.h` (350+ lines) — LAMMPS error integration layer
+    - Composite pipelines: `validate_inputs_for_surrogate()`, `validate_outputs_from_surrogate()`
+    - Step-by-step validators: `validate_characteristic_length()`, `validate_z_unit()`, `validate_quaternion()`, `validate_model_output()`, `validate_denormalized_overlap()`, `validate_physical_overlap()`
+    - All errors via `error->one(FLERR, msg)` with particle ID and context
+- **Documentation:**
+  - `specs/00-surrogate-interface-contract/IMPLEMENTATION.md` — Reference guide with usage patterns (3 patterns), formula reference, constants, error catalog, dual-guard examples
+- **Build Status:** Compiles cleanly; all targets built; header-only, no external deps beyond std C++
+- **Spec Requirements Satisfied:**
+  - ✓ R00.1: Input tensor format [z_unit, qw, qx, qy, qz]
+  - ✓ R00.3: Denormalization formula (log10 → unit scale)
+  - ✓ R00.4: Physical overlap (unit → physical)
+  - ✓ R00.5: Length scale handling (z_unit, L_actual validation)
+  - ✓ R00.6: Quaternion canonicalization (qw ≥ 0, deterministic)
+  - ✓ R04.3: Input validation (pre-query)
+  - ✓ R04.3: Output validation (post-query)
+- **Commit:** `db36bc51` (2026-11-10)
+
+#### ⏳ Spec 04: Contact Models (PENDING)
+- **Tasks:** T4.1–T4.5 (contact loop, surrogate integration, dual-guard, validation, testing)
+- **Planned Implementation:** `src/pair_gran_surrogate.h/cpp`, contact loop modification
+- **Dependencies Met:** Spec 02 ✅, Spec 03 ✅, Spec 00 ✅
+- **Estimated Effort:** 4–6 hours
+
+#### ⏳ Spec 05: Testing (PENDING)
+- **Depends on:** Spec 04 completion
+
+### Commits This Session (2026-11-10)
+1. `f5fecb94` — Spec 03 T3.3: Input syntax parsing
+2. `db36bc51` — Spec 00: Interface contract implementation
+
+### Key Design Decisions (Reinforced)
+- **Dual-guard pattern:** `#ifdef SURROGATE_ACTIVE_FLAG` + `if(atom->surrogate_flag)` throughout
+- **Denormalization formula:** `overlap_unit = 10^(log10_output * y_scale + y_mean) - eps`; for current models (y_mean=0, y_scale=1): `10^(log10_output) - 1e-15`
+- **Physical rescaling:** `overlap_phys = overlap_unit * L_actual`
+- **One shape per sim (Phase 3C):** Temporary limit; Phase 3D+ will lift for multi-shape
+- **Input tensor:** [z_unit, qw, qx, qy, qz] where z_unit = z_phys / L_actual
+- **All validation at contact time:** Not at registration time (follows LAMMPS pattern)
