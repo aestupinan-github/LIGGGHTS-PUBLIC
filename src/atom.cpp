@@ -174,6 +174,8 @@ Atom::Atom(LAMMPS *lmp) : Pointers(lmp)
   
 #ifdef SURROGATE_ACTIVE_FLAG
   surrogate_shape_current_key = 0;
+  characteristic_length = NULL;
+  shape_key = NULL;
 #endif
   peri_flag = electron_flag = 0;
   wavepacket_flag = sph_flag = 0;
@@ -330,6 +332,11 @@ Atom::~Atom()
   memory->destroy(area);
   memory->destroy(quaternion); //quaternion of current orientation
 //------------------------------------------------------
+
+#ifdef SURROGATE_ACTIVE_FLAG
+  memory->destroy(characteristic_length);
+  memory->destroy(shape_key);
+#endif
 
   memory->destroy(shapetype);
 

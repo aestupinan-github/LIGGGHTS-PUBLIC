@@ -14,8 +14,10 @@
 #include "force.h"
 #include "memory.h"
 #include "error.h"
+#include "math_const.h"
 
 using namespace LAMMPS_NS;
+using namespace MathConst;
 
 #define DELTA 10000
 
@@ -693,43 +695,52 @@ int AtomVecSurrogate::unpack_restart(double *buf)
 
 /* ---------------------------------------------------------------------- */
 
-void AtomVecSurrogate::create_atom(int n, double *buf)
+void AtomVecSurrogate::create_atom(int itype, double *coord)
 {
   int nlocal = atom->nlocal;
-  for (int i = 0; i < n; i++) {
-    if (nlocal == nmax) grow(0);
-    atom->tag[nlocal] = (tagint) ubuf(buf[0]).i;
-    atom->type[nlocal] = (int) ubuf(buf[1]).i;
-    if (atom->type[nlocal] <= 0 || atom->type[nlocal] > atom->ntypes)
-      error->one(FLERR, "Invalid atom type in create_atoms");
-    atom->x[nlocal][0] = buf[2];
-    atom->x[nlocal][1] = buf[3];
-    atom->x[nlocal][2] = buf[4];
-    atom->v[nlocal][0] = 0;
-    atom->v[nlocal][1] = 0;
-    atom->v[nlocal][2] = 0;
-    atom->mask[nlocal] = 1;
-    atom->image[nlocal] = ((imageint) ubuf(buf[5]).i << IMG2BITS) |
-                          ((imageint) ubuf(buf[6]).i << IMGBITS) |
-                          ((imageint) ubuf(buf[7]).i & IMGMASK);
+  if (nlocal == nmax) grow(0);
 
-    atom->quaternion[nlocal][0] = 1.0;
-    atom->quaternion[nlocal][1] = 0.0;
-    atom->quaternion[nlocal][2] = 0.0;
-    atom->quaternion[nlocal][3] = 0.0;
-    
-    atom->omega[nlocal][0] = atom->omega[nlocal][1] = atom->omega[nlocal][2] = 0.0;
-    atom->angmom[nlocal][0] = atom->angmom[nlocal][1] = atom->angmom[nlocal][2] = 0.0;
+  atom->tag[nlocal] = 0;
+  atom->type[nlocal] = itype;
+  atom->x[nlocal][0] = coord[0];
+  atom->x[nlocal][1] = coord[1];
+  atom->x[nlocal][2] = coord[2];
+  atom->mask[nlocal] = 1;
+  atom->image[nlocal] = ((tagint) IMGMAX << IMG2BITS) |
+                        ((tagint) IMGMAX << IMGBITS) | IMGMAX;
+  atom->v[nlocal][0] = 0.0;
+  atom->v[nlocal][1] = 0.0;
+  atom->v[nlocal][2] = 0.0;
+
+  atom->radius[nlocal] = 0.5;
+  atom->density[nlocal] = 1.0;
+  if (domain->dimension == 2)
+    atom->rmass[nlocal] = MY_PI *
+      atom->radius[nlocal]*atom->radius[nlocal]*atom->density[nlocal]; 
+  else
+    atom->rmass[nlocal] = 4.0*MY_PI/3.0 *
+      atom->radius[nlocal]*atom->radius[nlocal]*atom->radius[nlocal] * 
+      atom->density[nlocal];
+
+  atom->omega[nlocal][0] = 0.0;
+  atom->omega[nlocal][1] = 0.0;
+  atom->omega[nlocal][2] = 0.0;
+
+  atom->angmom[nlocal][0] = 0.0;
+  atom->angmom[nlocal][1] = 0.0;
+  atom->angmom[nlocal][2] = 0.0;
+
+  atom->quaternion[nlocal][0] = 1.0;
+  atom->quaternion[nlocal][1] = 0.0;
+  atom->quaternion[nlocal][2] = 0.0;
+  atom->quaternion[nlocal][3] = 0.0;
 
 #ifdef SURROGATE_ACTIVE_FLAG
-    atom->characteristic_length[nlocal] = 1.0;
-    atom->shape_key[nlocal] = 0;
+  atom->characteristic_length[nlocal] = 1.0;
+  atom->shape_key[nlocal] = 0;
 #endif
 
-    nlocal++;
-    buf += size_data_atom;
-  }
-  atom->nlocal = nlocal;
+  atom->nlocal++;
 }
 
 /* ---------------------------------------------------------------------- */

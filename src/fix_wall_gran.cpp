@@ -640,7 +640,14 @@ void FixWallGran::init()
         if(atom->surrogate_flag)
         {
             // Surrogate particles require explicit model for contact calculation
-            int shape_key = atom->surrogate_shape_current_key;
+            // Phase 3C: Get the single registered shape key (one shape per simulation)
+            if(atom->surrogate_shape_names.empty())
+            {
+                error->fix_error(FLERR, this, 
+                  "No surrogate shapes registered (require atom_style surrogate <shape_name>)");
+            }
+            
+            int shape_key = atom->surrogate_shape_keys[0];  // First (and only, Phase 3C) shape
             if(shape_key < 0 || shape_key >= (int)atom->surrogate_shape_names.size())
             {
                 error->fix_error(FLERR, this, 

@@ -1,8 +1,31 @@
---------------------------------------------------------------------------
-MPI_ABORT was invoked on rank 0 in communicator MPI_COMM_WORLD
-with errorcode 1.
+LIGGGHTS (Version LIGGGHTS-PUBLIC 3.8.0, compiled 2026-11-10 19:53:02 by su_estupinan, git commit 2cf683fbfb4dc52368246b67404d42139c98d977, build configuration: MPI VTK SURROGATE SMALLBIG, models: HERTZ TANGENTIAL_HISTORY TANGENTIAL_NO_HISTORY COHESION_SJKR COHESION_SJKR2 ROLLING_EPSD2 SURFACE_DEFAULT)
+Registered surrogate shape: ss-cube (key=0)
+Created orthogonal box = (-5 -5 0) to (5 5 20)
+  1 by 1 by 1 MPI processor grid
+Created 1 atoms
+Setting atom values ...
+  1 settings made for mass
+Setting atom values ...
+  1 settings made for diameter
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
 
-NOTE: invoking MPI_ABORT causes Open MPI to kill all MPI processes.
-You may or may not see output from other processes, depending on
-exactly when Open MPI kills them.
---------------------------------------------------------------------------
+ (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/contact_models.h:365)
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/contact_models.h:365)
+WARNING: It is heavily recommended to use 'neigh_modify delay 0' with granular pair styles (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/pair_gran.cpp:237)
+ERROR: Pair granular requires atom style sphere, superquadric or convexhull (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/pair_gran.cpp:243)
