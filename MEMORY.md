@@ -43,6 +43,123 @@ Persistent memory for the surrogate shape (ss) project. Updated at the end of ev
 
 ---
 
+---
+
+## Known Issues & Blockers
+
+### CRITICAL: Spec 03 Initialization Failure (Session 3)
+
+**Symptom:** `create_atoms` with `atom_style surrogate` triggers silent MPI_ABORT
+
+**Investigation Steps:**
+```
+✓ atom_style surrogate ss-cube    → Works; shape registered (key=0)
+✓ create_box                       → Works
+✗ create_atoms ... single 0 0 0    → FAILS with MPI_ABORT
+```
+
+**Reproduction:**
+```bash
+cd /tmp
+cat > test.in << 'TESTEOF'
+units si
+atom_style surrogate ss-cube
+dimension 3
+boundary f f f
+region domain block -1 1 -1 1 0 2 units box
+create_box 1 domain
+create_atoms 1 single 0.0 0.0 1.0  # ← FAILS HERE
+TESTEOF
+
+/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/build/liggghts -in test.in 2>&1
+# Result: Silent MPI_ABORT
+```
+
+**Root Cause Hypotheses:**
+1. **Unimplemented Virtual Method** - AtomVecSurrogate missing required method from AtomVec base
+   - Likely candidate: unpack_data_atom() or similar
+   - Check: grep "unpack_data_atom" src/atom_vec_surrogate.cpp (returns empty)
+   
+2. **init() Validation Failure** - atom_vec_surrogate.cpp:44-68
+   - Checks surrogate_shape_names not empty (should pass - we registered ss-cube)
+   - Checks only one shape per simulation (should pass)
+   - Likely not the culprit but verify logic
+   
+3. **Dual-Guard Pattern Missing** - New unpack/pack methods need `#ifdef SURROGATE_ACTIVE_FLAG`
+   - If virtual method calls atom->surrogate_shape_names without guard → segfault
+   
+4. **grow() or Memory Issue** - Memory allocation in grow() (line 145-177)
+   - Attempts to grow atom->characteristic_length, atom->shape_key
+   - If atom pointers not initialized → segfault
+
+**Debug Plan:**
+1. Use `gdb` to catch exact error point before MPI_ABORT
+2. Check if virtual method is missing (override required methods)
+3. Verify all new array allocations have guards
+4. Check if init() is being called inappropriately
+
+**Related Files:**
+- `src/atom_vec_surrogate.h` (header, class definition)
+- `src/atom_vec_surrogate.cpp` (implementation, 849 lines)
+- `src/atom.h` (atom structure with new flags/arrays)
+- `src/atom.cpp` (atom initialization)
+
+**Impact:** Blocks all 4 test cases; cannot proceed with Spec 04 validation
+
+---
+
+## Proposed Work Plan for Next Session
+
+### 1. DEBUG SPEC 03 INITIALIZATION (2-3 hours, HIGH PRIORITY)
+
+**Objective:** Get `create_atoms` working with surrogate atom style
+
+**Tasks:**
+1a. Use debugger to locate exact MPI_ABORT trigger point
+1b. Verify all virtual methods are implemented
+1c. Add dual-guard pattern to unpack/pack methods if needed
+1d. Test: Run simple create_atoms test
+
+**Success Criteria:**
+- `create_atoms` completes without MPI_ABORT
+- Shape registration still works
+- Binary recompiles without errors
+
+### 2. RUN TEST CASES (30-45 min, depends on #1)
+
+**Tasks:**
+2a. Run test_01_cube_1m_falling.in
+2b. Run test_02_cube_1cm_falling.in
+2c. Analyze results (energy, forces, s_unit range)
+
+**Success Criteria:**
+- Both tests complete without errors
+- Contact forces detected (non-zero)
+- Energy roughly conserved
+
+### 3. SPEC 04 T4.3-T4.5 COMPLETION (1-2 hours)
+
+**Tasks:**
+3a. Runtime Model Validation (R04.5)
+3b. Runtime Warnings (R04.3, R04.4)
+3c. Error Handling with Diagnostics
+3d. Verify dual-guard pattern throughout
+
+**Success Criteria:**
+- Code compiles without errors
+- Tests still pass
+- Error messages provide actionable diagnostics
+
+### 4. SPEC 05 TEST SUITE (2-3 hours, future session)
+
+**Planned Tests:**
+- Basic contact tests (scales, energy conservation)
+- Multi-particle tests
+- Wall orientation tests (Phase 3D+)
+- Shape variation tests (Phase 3D+)
+- Physics validation tests
+
+
 ## Model and Build Configuration
 
 ### Active Model (Phase 3C)
