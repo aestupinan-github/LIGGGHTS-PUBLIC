@@ -63,6 +63,7 @@ class AtomVecSurrogate : public AtomVec {
   ~AtomVecSurrogate() {}
   
    void init();
+   void settings(int, char **);
    void register_shape(const char *);
    void grow(int);
   void grow_reset();

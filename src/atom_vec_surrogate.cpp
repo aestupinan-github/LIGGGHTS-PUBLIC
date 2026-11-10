@@ -70,6 +70,36 @@ void AtomVecSurrogate::init()
 /* ---------------------------------------------------------------------- */
 
 /**
+ * @brief Parse atom_style command arguments
+ * 
+ * Input file syntax: atom_style surrogate ss-cube
+ * - arg[0] = "ss-cube" (or other shape name)
+ * 
+ * Expected: exactly 1 argument (shape name)
+ * Errors if narg != 1 or shape name is empty
+ * 
+ * @param narg Number of arguments (should be 1 for "atom_style surrogate ss-cube")
+ * @param arg  Array of argument strings (arg[0] = shape name)
+ */
+void AtomVecSurrogate::settings(int narg, char **arg)
+{
+#ifdef SURROGATE_ACTIVE_FLAG
+  if (narg != 1) {
+    error->all(FLERR, "Illegal atom_style surrogate command: expected syntax is 'atom_style surrogate <shape_name>'");
+  }
+  
+  // Register the shape immediately (before simulation starts)
+  register_shape(arg[0]);
+#else
+  // If SURROGATE_ACTIVE_FLAG not defined, this code path should never execute
+  // (surrogate atom style would not be registered)
+  error->all(FLERR, "Surrogate atom style requires ENABLE_SURROGATE=ON at compile time");
+#endif
+}
+
+/* ---------------------------------------------------------------------- */
+
+/**
  * @brief Register a surrogate shape type
  * 
  * Adds a shape name to the global database and assigns it a unique shape_key.
