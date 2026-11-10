@@ -4,6 +4,45 @@ Persistent memory for the surrogate shape (ss) project. Updated at the end of ev
 
 ---
 
+## ⚡ Session 3 Summary (2026-11-10)
+
+### ✅ Completed
+- **Spec 04 T4.1-T4.2 Implementation** (390 lines C++)
+  * `src/surrogate_contact.h` (290 lines): SurrogateContactModel class
+  * `fix_wall_gran.h/cpp` (~120 lines): Model init + contact loop
+  * Full validator integration (Spec 00/04 validators)
+  * Dual-guard pattern throughout
+
+- **Build Verification**
+  * ✅ CMake config: `-DENABLE_SURROGATE=ON -DLIBTORCH_DIR=...`
+  * ✅ Binary: 6.8M
+  * ✅ Torch libs linked: torch, torch_cpu, c10
+  
+- **Design Finalization**
+  * ✅ Grilling session (10 design questions resolved)
+  * ✅ Phase 3C decisions locked and documented
+  * ✅ Spec 04 requirements updated
+
+- **Test Cases Created**
+  * ✅ test_01_cube_1m_falling.in (trained scale)
+  * ✅ test_02_cube_1cm_falling.in (rescaled 100x)
+  * ✅ run_tests.sh (automated test runner)
+  * ✅ README.md (comprehensive documentation)
+
+### ⚠️ BLOCKED
+- **Spec 03 Initialization Issue**
+  * atom_style surrogate registration: ✓
+  * create_atoms with surrogate: ✗ MPI_ABORT (silent)
+  * Likely: Unimplemented virtual method or init() validation
+  * **Tests cannot run until fixed**
+
+### 📋 Next Session Priorities
+1. **Debug Spec 03** - Fix atom_style initialization (HIGH PRIORITY)
+2. **Run tests** - Execute test_01, test_02 once Spec 03 works
+3. **Spec 04 T4.3-T4.5** - Model validation, warnings, error handling
+
+---
+
 ## Model and Build Configuration
 
 ### Active Model (Phase 3C)
