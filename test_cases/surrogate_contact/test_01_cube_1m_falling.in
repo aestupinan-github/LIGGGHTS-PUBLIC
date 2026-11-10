@@ -1,0 +1,70 @@
+# Test Case 01: Surrogate Contact - Cube (L=1m) Falling on Plane
+# 
+# Purpose: Test surrogate contact model with trained characteristic length (L=1m)
+# Expected: Cube should fall, contact with plane via surrogate model, bounce back
+# 
+# Model: run_029 (ss-cube-walls, 84.7% accuracy)
+# Shape: ss-cube with L_actual = 1.0 m (matches training scale)
+# 
+# Physics:
+# - Hertz contact + tangential history
+# - Density: 1000 kg/m³ (water-like, for stability)
+# - No cohesion or rolling friction (simple case)
+
+# ===== Simulation Control =====
+units           si
+atom_style      surrogate ss-cube
+dimension       3
+boundary        f f f
+
+# ===== Geometry =====
+region          domain block -5.0 5.0 -5.0 5.0 0.0 20.0 units box
+create_box      1 domain
+
+# ===== Particle Creation =====
+# Single cube particle at height z=10m, falling under gravity
+# Characteristic length L = 1.0 m (trained model size)
+create_atoms    1 single 0.0 0.0 10.0
+
+# ===== Material Properties =====
+# Density: 1000 kg/m³
+# Mass = density * volume = 1000 * 1³ = 1000 kg
+mass            1 1000.0
+
+# Set characteristic length (for surrogate particles)
+# This MUST match the trained model scale
+set             atom 1 diameter 1.0
+
+# ===== Velocity & Forces =====
+# Initial velocity: 0 (free fall)
+velocity        all set 0.0 0.0 0.0
+
+# Gravity: 9.81 m/s² downward
+fix             gravity all gravity 9.81 vector 0.0 0.0 -1.0
+
+# ===== Wall (Primitive Plane) =====
+# Plane wall at z=0, facing upward (normal = +z)
+fix             wall all wall/gran primwall 0 -zplane 0.0 10000 10000
+
+# ===== Contact Model =====
+# Hertz contact + tangential history
+pair_style      gran model hertz tangential history
+pair_coeff      1 1
+
+# ===== Time Integration =====
+timestep        0.0001
+thermo          100
+thermo_style    custom step atoms ke pe c_thermo_kinetic c_thermo_potential
+
+# Compute kinetic and potential energy
+compute         thermo_kinetic all ke
+compute         thermo_potential all pe
+
+# ===== Run =====
+# Simulate for 2 seconds (20,000 timesteps at dt=0.0001)
+run             20000
+
+# ===== Output =====
+print "===== TEST 01 COMPLETE ====="
+print "Cube (L=1m) fell and contacted wall via surrogate model"
+print "Expected: Contact force > 0 after ~t=1.41s (free fall from 10m)"

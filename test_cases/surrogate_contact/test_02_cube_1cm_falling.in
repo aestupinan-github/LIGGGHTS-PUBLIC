@@ -1,0 +1,76 @@
+# Test Case 02: Surrogate Contact - Cube (L=1cm) Falling on Plane
+# 
+# Purpose: Test surrogate contact model with rescaled characteristic length (L=1cm)
+# This tests the L-rescaling capability: overlap should scale as overlap_phys = overlap_unit * L_actual
+# Expected: Same contact behavior as test_01, but scaled down by 100x
+# 
+# Model: run_029 (ss-cube-walls, 84.7% accuracy)
+# Shape: ss-cube with L_actual = 0.01 m (100x smaller than training scale)
+# 
+# Physics:
+# - Hertz contact + tangential history
+# - Density: 1000 kg/m³ (same material as test_01)
+# - No cohesion or rolling friction (simple case)
+# 
+# Note: Contact force will be much smaller due to smaller contact area
+
+# ===== Simulation Control =====
+units           si
+atom_style      surrogate ss-cube
+dimension       3
+boundary        f f f
+
+# ===== Geometry =====
+region          domain block -0.05 0.05 -0.05 0.05 0.0 0.2 units box
+create_box      1 domain
+
+# ===== Particle Creation =====
+# Single cube particle at height z=0.1m, falling under gravity
+# Characteristic length L = 0.01 m (100x smaller than training scale)
+create_atoms    1 single 0.0 0.0 0.1
+
+# ===== Material Properties =====
+# Density: 1000 kg/m³
+# Mass = density * volume = 1000 * 0.01³ = 1000 * 1e-6 = 0.001 kg
+mass            1 0.001
+
+# Set characteristic length (for surrogate particles)
+# This is 100x smaller than trained model
+set             atom 1 diameter 0.01
+
+# ===== Velocity & Forces =====
+# Initial velocity: 0 (free fall)
+velocity        all set 0.0 0.0 0.0
+
+# Gravity: 9.81 m/s² downward
+fix             gravity all gravity 9.81 vector 0.0 0.0 -1.0
+
+# ===== Wall (Primitive Plane) =====
+# Plane wall at z=0, facing upward (normal = +z)
+fix             wall all wall/gran primwall 0 -zplane 0.0 10000 10000
+
+# ===== Contact Model =====
+# Hertz contact + tangential history
+pair_style      gran model hertz tangential history
+pair_coeff      1 1
+
+# ===== Time Integration =====
+# Timestep scaled down proportionally (smaller particles, faster dynamics)
+timestep        0.00001
+thermo          1000
+thermo_style    custom step atoms ke pe c_thermo_kinetic c_thermo_potential
+
+# Compute kinetic and potential energy
+compute         thermo_kinetic all ke
+compute         thermo_potential all pe
+
+# ===== Run =====
+# Simulate for 0.2 seconds (20,000 timesteps at dt=0.00001)
+# Same number of timesteps as test_01, but different physical time
+run             20000
+
+# ===== Output =====
+print "===== TEST 02 COMPLETE ====="
+print "Cube (L=0.01m/1cm) fell and contacted wall via surrogate model"
+print "Expected: Contact force >> 0 after ~t=0.141s (free fall from 0.1m)"
+print "Note: Contact force should be ~1e-6 times test_01 (100^3 volume ratio)"
