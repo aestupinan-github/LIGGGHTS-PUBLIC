@@ -634,6 +634,52 @@ void FixWallGran::init()
                     error->fix_error(FLERR,this,"More than one wall of type 'mesh' is not supported");
             }
         }
+
+        // Load surrogate model for surrogate particles (Spec 04, T4.1)
+#ifdef SURROGATE_ACTIVE_FLAG
+        if(atom->surrogate_flag)
+        {
+            // Surrogate particles require explicit model for contact calculation
+            int shape_key = atom->surrogate_shape_current_key;
+            if(shape_key < 0 || shape_key >= (int)atom->surrogate_shape_names.size())
+            {
+                error->fix_error(FLERR, this, 
+                  "Internal error: invalid surrogate shape key at init() time");
+            }
+
+            // Get shape name from shape database (added in Spec 03, T3.2)
+            std::string shape_name = atom->surrogate_shape_names[shape_key];
+
+            // Initialize surrogate contact model (Spec 04, T4.1: load_model)
+            if(!surrogate_contact_model_)
+            {
+                surrogate_contact_model_ = 
+                    std::make_unique<SurrogateContactModel>(error);
+            }
+
+            if(comm->me == 0)
+            {
+                char msg[512];
+                snprintf(msg, 512, 
+                  "Loading surrogate contact model for shape '%s'", 
+                  shape_name.c_str());
+                error->message(FLERR, msg);
+            }
+
+            surrogate_contact_model_->load_model(shape_name.c_str());
+
+            if(comm->me == 0)
+            {
+                char msg[1024];
+                snprintf(msg, 1024, 
+                  "Surrogate model loaded: shape='%s', model='%s', scalers='%s'",
+                  shape_name.c_str(),
+                  surrogate_contact_model_->model_file_path.c_str(),
+                  surrogate_contact_model_->scaler_file_path.c_str());
+                error->message(FLERR, msg);
+            }
+        }
+#endif
     }
     
     fix_sum_normal_force_ =
@@ -1110,6 +1156,79 @@ void FixWallGran::post_force_primitive(int vflag)
       }
       #endif
 
+      // **Surrogate Contact Model Query (Spec 04, T4.2)**
+      // Phase 3C Design: Use delta from primitiveWall_->resolveContact() for generalized normal
+      // s_unit = |deltan| / L_actual works for any wall orientation (xy, yz, xz planes, etc.)
+      #ifdef SURROGATE_ACTIVE_FLAG
+      if(atom->surrogate_flag) {
+        // Spec 04, R04.2: Query surrogate only if close enough (follow superquadric pattern)
+        if(deltan <= 0 || deltan < contactDistanceMultiplier*radius[iPart]) {
+          
+          // Get characteristic length for surrogate particle
+          double L_actual = atom->characteristic_length[iPart];
+          if(L_actual <= 0.0) {
+            error->fix_error(FLERR, this, 
+              "Surrogate particle has invalid characteristic_length");
+          }
+
+          // Compute normalized distance along wall normal (generalized, works for any wall orientation)
+          // s_unit = |deltan| / L_actual
+          // deltan comes from primitiveWall_->resolveContact(), already encodes wall normal direction
+          double s_unit = fabs(deltan) / L_actual;
+
+          // Spec 04, R04.10: Skip if too far (no physical contact possible)
+          // Conservative: skip if s_unit > 3 * L_actual
+          // Note: This may be too conservative for elongated shapes (Phase 3D+ review needed)
+          const double SKIP_THRESHOLD = 3.0;
+          if(s_unit > SKIP_THRESHOLD * L_actual) {
+            // Too far; no contact possible
+            if(c_history)
+              vectorZeroizeN(c_history[iPart], dnum_);
+            continue;
+          }
+
+          // Get particle quaternion and validate
+          double quat[4];
+          if(atom->quaternion) {
+            vectorCopy4D(atom->quaternion[iPart], quat);
+          } else {
+            error->fix_error(FLERR, this,
+              "Surrogate particle missing quaternion data");
+          }
+
+          // Query surrogate model for contact overlap (Spec 04, R04.2: Contact Calculation Flow)
+          // SurrogateContactModel::query_overlap executes 7-step pipeline:
+          // (1) Validate inputs, (2) Prepare tensor, (3) Model forward, (4) Validate output,
+          // (5-6) Denormalize + rescale, (7) Physical validity check
+          if(surrogate_contact_model_ && surrogate_contact_model_->is_loaded()) {
+            double overlap_phys = surrogate_contact_model_->query_overlap(
+              s_unit,
+              L_actual,
+              quat,
+              atom->tag[iPart],
+              update->ntimestep);
+
+            // Spec 04, R04.4: If surrogate predicts overlap > 0 (gap), skip contact
+            if(overlap_phys > 0.0) {
+              // No contact; gap exists
+              if(c_history)
+                vectorZeroizeN(c_history[iPart], dnum_);
+              continue;
+            }
+
+            // Use surrogate overlap as signed distance (negative = contact)
+            // Spec 04, R04.1 (Hard Boundary): Surrogate is ONLY source of geometric contact data
+            // No mixing with native contact model
+            deltan = -overlap_phys;
+            intersectflag = (deltan <= 0);
+          } else {
+            error->fix_error(FLERR, this,
+              "Surrogate particles require model loaded; check init() phase");
+          }
+        }
+      }
+      #endif
+
       if(shear_ && shearAxis_ >= 0)
       {
           primitiveWall_->calcRadialDistance(x_[iPart],rdist);
@@ -1119,8 +1238,14 @@ void FixWallGran::post_force_primitive(int vflag)
       sidata.i = iPart;
       sidata.contact_history = c_history ? c_history[iPart] : NULL;
 
+      // Hard-zero contact history on break: follow superquadric pattern
+      // Spec 04, R04.6: Contact history hard-zeroing
+      // Dual-guard pattern: #ifdef SURROGATE_ACTIVE_FLAG + if(surrogate_flag)
       if(    (atom->superquadric_flag && deltan > 0.0)
-          || (atom->shapetype_flag && !impl->checkSurfaceIntersect(sidata)))
+           #ifdef SURROGATE_ACTIVE_FLAG
+           || (atom->surrogate_flag && deltan > 0.0)
+           #endif
+           || (atom->shapetype_flag && !impl->checkSurfaceIntersect(sidata)))
       {
         if(c_history)
             vectorZeroizeN(c_history[iPart],dnum_);

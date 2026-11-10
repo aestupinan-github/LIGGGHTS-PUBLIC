@@ -58,6 +58,10 @@ FixStyle(wall/gran,FixWallGran)
 #include "fix_contact_property_atom_wall.h"
 #include "compute_pair_gran_local.h"
 
+#ifdef SURROGATE_ACTIVE_FLAG
+#include "surrogate_contact.h"
+#endif
+
 namespace LCM = LIGGGHTS::ContactModels;
 
 namespace LAMMPS_NS {
@@ -314,6 +318,10 @@ class FixWallGran : public Fix, public LIGGGHTS::IContactHistorySetup {
 
   class PrimitiveWall *primitiveWall_;
   class FixPropertyAtom *fix_history_primitive_;
+
+#ifdef SURROGATE_ACTIVE_FLAG
+  std::unique_ptr<SurrogateContactModel> surrogate_contact_model_;
+#endif
 
   // class to keep track of wall contacts
   bool rebuildPrimitiveNeighlist_;
