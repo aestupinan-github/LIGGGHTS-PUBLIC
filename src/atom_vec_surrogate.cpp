@@ -50,10 +50,18 @@ void AtomVecSurrogate::init()
   if (atom->surrogate_shape_names.empty()) {
     error->one(FLERR, "atom_style surrogate requires shape registration via atom_style command");
   }
+  
+  // Phase 3C: Enforce one shape type per simulation (temporary limitation)
+  // Phase 3D+: This check will be removed to support cube-to-cube + cube-to-wall + ... combinations
+  // See specs/03-surro-shape-type/requirements.md:R03.6a
   if (atom->surrogate_shape_names.size() > 1) {
     char msg[1024];
-    snprintf(msg, 1024, "Only one surrogate shape type permitted per simulation; found %zu types", 
-             atom->surrogate_shape_names.size());
+    snprintf(msg, 1024, 
+      "Phase 3C: Only one surrogate shape type permitted per simulation; found %zu types. "
+      "Phase 3D+ will lift this restriction for multi-shape contact. "
+      "Shapes: %s",
+      atom->surrogate_shape_names.size(),
+      atom->surrogate_shape_names[0].c_str());
     error->one(FLERR, msg);
   }
 #endif
@@ -64,10 +72,14 @@ void AtomVecSurrogate::init()
 /**
  * @brief Register a surrogate shape type
  * 
- * Validates shape name, checks for duplicates, and assigns shape_key.
- * One shape type per simulation (enforced at init() time).
+ * Adds a shape name to the global database and assigns it a unique shape_key.
+ * Future-ready: architecture supports multiple shape types (cube-wall, cube-cube, etc.)
  * 
- * @param shape_name Name of shape (e.g., "ss-cube")
+ * Phase 3C: Enforces one shape per simulation (see init() for details)
+ * Phase 3D+: Will allow multiple shapes for cross-shape contacts
+ * 
+ * @param shape_name Name of shape (e.g., "ss-cube", "ss-pyramid")
+ *                   Maps to SS_models/{shape_name}-walls/ or similar directory
  */
 void AtomVecSurrogate::register_shape(const char *shape_name)
 {
@@ -85,15 +97,15 @@ void AtomVecSurrogate::register_shape(const char *shape_name)
     }
   }
 
-  // Register the shape
+  // Register the shape (dynamic key assignment supports future multi-shape designs)
   atom->surrogate_shape_names.push_back(std::string(shape_name));
   atom->surrogate_shape_keys.push_back(atom->surrogate_shape_current_key);
+  int assigned_key = atom->surrogate_shape_current_key;
   atom->surrogate_shape_current_key++;
 
-  // Log (diagnostic output)
+  // Log (diagnostic output; helps debug shape registration in parallel runs)
   if (comm->me == 0) {
-    fprintf(screen, "Registered surrogate shape: %s (key=%d)\n", 
-            shape_name, atom->surrogate_shape_keys.back());
+    fprintf(screen, "Registered surrogate shape: %s (key=%d)\n", shape_name, assigned_key);
   }
 #endif
 }

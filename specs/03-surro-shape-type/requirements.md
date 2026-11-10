@@ -99,7 +99,46 @@ if(atom->surrogate_flag) {
 
 **Parallel:** Matches `-DENABLE_SQ=ON` for superquadrics (Spec 01)
 
-### R03.6: Runtime Exclusivity (One Shape Type per Simulation)
+### R03.6: Runtime Exclusivity (One Shape Type per Simulation) — DEPRECATED, see R03.6a
+
+**[OUTDATED — See R03.6a below for current design]**
+
+### R03.6a: Multiple Shape Types per Simulation (Future-Ready Design)
+
+**Current Phase (3C):** Allow one shape type per simulation for simplicity  
+**Future Phase (3D+):** Architecture shall support multiple shape types (cube-wall, cube-cube, pyramid-wall, etc.)
+
+**Design Principle:** 
+- Shape database is indexed by `shape_key` (integer)
+- Each shape_key maps to a trained model directory (e.g., ss-cube-walls/, ss-cube-cube/, ss-pyramid-walls/)
+- Multiple particles can have different shape_keys in same simulation
+- Contact logic will dispatch to correct model based on particle pair's shape_keys
+
+**Current Enforcement (Phase 3C):**
+- At init() time, enforce maximum 1 registered shape type (error if > 1)
+- Rationale: Simplifies initial deployment; one model directory per simulation run
+- Code comment: "TODO: Phase 3D will lift this restriction to allow cube-to-cube + cube-to-wall in same run"
+
+**Future Relaxation (Phase 3D+):**
+- Remove one-shape-per-simulation check in `AtomVecSurrogate::init()`
+- Add cross-shape contact model dispatch (Spec 04 T4.x)
+- Example: particles with shape_key=0 (ss-cube-walls) contact particles with shape_key=1 (ss-cube-cube)
+- Will require model registry: map {(shape_key_i, shape_key_j) → model_directory}
+
+**Preparation for Future:**
+- Shape database already stores vectors of names and keys (not single-shape array)
+- `register_shape()` method accepts arbitrary names (no hardcoding of shape_names)
+- Shape_key assignment is dynamic (counter-based), not enum-based
+- Model path lookup uses shape_name, not hard-coded directories
+
+**Edge Cases to Consider (Future):**
+- Asymmetric contacts: Does ss-cube-to-wall model work for wall-to-ss-cube? (Need separate models or symmetry check)
+- Many shapes (N > 5): O(N²) contact model combinations; may need model fallback strategy
+- Load-time validation: Check that all required {shape_key_i, shape_key_j} models exist before first contact
+
+---
+
+**Old R03.6 (Archive):**
 
 **Constraint:** Cannot mix shape types in same simulation
 
@@ -175,6 +214,7 @@ if(atom->surrogate_flag) {
 
 - CC-1: atom_style surrogate is registered and compiles
 - CC-2: Shape database is populated from input file syntax
-- CC-3: One shape type per simulation rule is enforced
+- CC-3: One shape type per simulation rule is enforced (Phase 3C limitation; documented for future removal in Phase 3D+)
 - CC-4: Dual-guard pattern is applied consistently across code
 - CC-5: characteristic_length is stored and accessible per-particle
+- CC-6: Shape database architecture supports multiple shapes (vectors not single-shape; dynamic key assignment; documented upgrade path)
