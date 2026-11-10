@@ -238,11 +238,22 @@ Persistent memory for the surrogate shape (ss) project. Updated at the end of ev
   - ✓ R04.3: Output validation (post-query)
 - **Commit:** `db36bc51` (2026-11-10)
 
-#### ⏳ Spec 04: Contact Models (PENDING)
+#### ⏳ Spec 04: Contact Models (IN PROGRESS - ARCHITECTURE PHASE)
 - **Tasks:** T4.1–T4.5 (contact loop, surrogate integration, dual-guard, validation, testing)
-- **Planned Implementation:** `src/pair_gran_surrogate.h/cpp`, contact loop modification
-- **Dependencies Met:** Spec 02 ✅, Spec 03 ✅, Spec 00 ✅
-- **Estimated Effort:** 4–6 hours
+- **Session 2 (2026-11-10) Work:**
+  - T4.1 (Completed): `src/surrogate_contact.h` — Model loader, query function, denormalization pipeline
+  - T4.2 (Completed): `query_overlap()` method implements all 7 steps from Spec 04 R04.2
+  - Architecture design for fix_wall_gran integration drafted
+- **Blocker Encountered:** LibTorch API complexity (torch::jit::load signature unclear)
+  - `#include <torch/torch.h>` loaded correctly; header details need verification
+  - Solution: Extract correct API from libtorch CMake target or docs
+- **Next Steps:**
+  - Verify torch::jit::load correct call syntax (possibly `torch::jit::load(std::shared_ptr...)` or via `script::Module`)
+  - Complete surrogate_contact.h with correct API
+  - Integrate into fix_wall_gran.cpp post_force_primitive() method
+  - Implement contact history hard-zeroing (Spec 04, R04.6)
+  - Add runtime model validation and warnings
+- **Estimated Remaining Effort:** 3–4 hours (blocked on torch API clarification)
 
 #### ⏳ Spec 05: Testing (PENDING)
 - **Depends on:** Spec 04 completion
