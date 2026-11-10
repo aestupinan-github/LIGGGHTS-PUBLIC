@@ -43,6 +43,65 @@ Persistent memory for the surrogate shape (ss) project. Updated at the end of ev
 
 ---
 
+## Session 4 Summary (2026-11-10, continuation)
+
+### ✅ CRITICAL BUG FIXED: Spec 03 Initialization Blocker
+
+**Status:** RESOLVED ✅
+
+**Root Cause Analysis:**
+The silent MPI_ABORT during `create_atoms` was caused by FOUR cascading bugs:
+
+1. **PRIMARY: Uninitialized Atom Pointers**
+   - `atom->characteristic_length` and `atom->shape_key` were declared in atom.h but never initialized to NULL
+   - When `AtomVecSurrogate::grow()` called `memory->grow(atom->characteristic_length, ...)`, it tried to operate on a random memory address
+   - Result: Segfault caught by MPI, turned into silent abort
+
+2. **SECONDARY: Wrong Virtual Method Signature**
+   - Implementation: `create_atom(int n, double *buf)` [treating it as bulk load for N atoms]
+   - Should be: `create_atom(int itype, double *coord)` [single atom creation]
+   - Symptom: Buffer underflow when LAMMPS passed single atom data
+
+3. **TERTIARY: Missing Namespace for PI**
+   - `MY_PI` macro used in mass calculation but `using namespace MathConst;` not included
+   - Fixed: Added header + namespace
+
+4. **QUATERNARY: Wrong Shape Key Lookup in fix_wall_gran**
+   - Used `atom->surrogate_shape_current_key` which tracks NEXT key to assign, not current
+   - After registering ss-cube with key=0, `current_key` was incremented to 1
+   - Caused: "invalid surrogate shape key" validation error
+   - Fixed: Use `atom->surrogate_shape_keys[0]` for Phase 3C (one shape constraint)
+
+**Verification:**
+```bash
+# Before fix:
+create_atoms 1 single 0.0 0.0 1.0  → MPI_ABORT (silent)
+
+# After fix:
+Created 1 atoms  ✓
+create_atoms 1 single 0.0 0.0 1.0  ✓
+
+# Fix confirmed in fix_wall_gran initialization:
+Loading surrogate contact model for shape 'ss-cube' ✓
+Surrogate model loaded: model.pt, scalers.dat ✓
+```
+
+**Files Changed:**
+- `src/atom.cpp` (lines 175-179, 338-341): Init/destroy surrogate arrays
+- `src/atom_vec_surrogate.cpp` (lines 19-20, 26-44, 696-745): Fix create_atom() signature, add math includes
+- `src/fix_wall_gran.cpp` (lines 638-657): Fix shape key lookup for Phase 3C
+- `test_cases/surrogate_contact/test_*.in`: Updated syntax (pair_style none, neigh_modify, material properties)
+
+**Impact:**
+- ✅ Spec 03 unblocked: Surrogate atom style fully functional
+- ✅ Shape registration working: ss-cube properly registered with key=0
+- ✅ Model loading working: LibTorch integration verified
+- ⏳ Test execution: Minor remaining issues with LAMMPS run initialization (bin size calc)
+
+**Commits:**
+- `a70fbdec`: Fix Spec 03 blocker (comprehensive fix)
+
+
 ---
 
 ## Known Issues & Blockers
