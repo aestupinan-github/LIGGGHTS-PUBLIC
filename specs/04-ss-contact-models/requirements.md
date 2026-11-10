@@ -234,3 +234,45 @@ if(atom->surrogate_flag && deltan > 0.0) {
 - CC-4: Contact history is hard-zeroed on break
 - CC-5: Physics/geometry boundary is explicitly enforced in code
 - CC-6: All geometric outputs come from single surrogate evaluation
+
+---
+
+## Phase 3C Design Decisions (2026-11-10 Finalized)
+
+### Wall Normal Direction (Generalized for Any Wall Orientation)
+
+**Key Finding:** The `delta` vector returned by `primitiveWall_->resolveContact(double *x, double r, double *delta)` already encodes the contact normal direction (pointing from wall toward particle).
+
+**Implementation:** Instead of hardcoding z-axis assumption:
+- Compute `s_unit = |deltan| / L_actual` where `deltan = ||delta||`
+- This automatically handles walls in any orientation (xy-plane, yz-plane, xz-plane, cylinders, etc.)
+- Replaces the original training assumption of z-axis walls
+
+**Rationale:** The `delta` vector is already computed by `primitiveWall_` for sphere-based contact detection. Reusing it for surrogate input ensures consistency and generalization.
+
+### Contact Cutoff Strategy (Follow Superquadric Pattern)
+
+1. Call `primitiveWall_->resolveContact()` for fast sphere-based distance computation
+2. If `deltan <= cutoff` (close enough), query surrogate model
+3. Use surrogate overlap output directly (no analytical refinement per Spec 04 R04.1)
+4. Skip contact if `s_unit > 3 * L_actual` (too far; no physical contact possible)
+
+**Note on Elongated Shapes:** The `3 * L_actual` threshold assumes cubic-like shapes. For elongated shapes (future Phase 3D+), this may be too conservative or too permissive. Recommendation: make threshold shape-aware when multi-shape support is added.
+
+### Shape Mismatch Detection (Phase 3C Assumption)
+
+**Current approach:** Trust folder structure. Model shape is inferred from path: `/SS_models/{shape_name}-walls/model.pt`.
+
+**Phase 3C Limitation:** No explicit shape metadata field in scalers.dat file. Cannot distinguish between models trained for different shapes at runtime.
+
+**Phase 3D+ Roadmap:** Add explicit `shape_target` field to scalers.dat (ss_model_record_v2 or extended v1) to enable robust multi-shape validation.
+
+### Input Normalization (`s_unit` Definition)
+
+**Original (z-axis only):** `z_unit = (z_particle - z_wall) / L_actual`
+
+**Generalized (any wall):** `s_unit = |deltan| / L_actual` where `deltan` comes from `primitiveWall_->resolveContact()`
+
+**Mapping to Model Input Tensor:** `[s_unit, qw, qx, qy, qz]` (same 5-feature format as training)
+
+---

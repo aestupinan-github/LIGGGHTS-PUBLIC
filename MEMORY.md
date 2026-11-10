@@ -238,22 +238,59 @@ Persistent memory for the surrogate shape (ss) project. Updated at the end of ev
   - ✓ R04.3: Output validation (post-query)
 - **Commit:** `db36bc51` (2026-11-10)
 
-#### ⏳ Spec 04: Contact Models (IN PROGRESS - ARCHITECTURE PHASE)
+#### ⏳ Spec 04: Contact Models (IN PROGRESS - DESIGN FINALIZED)
 - **Tasks:** T4.1–T4.5 (contact loop, surrogate integration, dual-guard, validation, testing)
 - **Session 2 (2026-11-10) Work:**
   - T4.1 (Completed): `src/surrogate_contact.h` — Model loader, query function, denormalization pipeline
   - T4.2 (Completed): `query_overlap()` method implements all 7 steps from Spec 04 R04.2
-  - Architecture design for fix_wall_gran integration drafted
-- **Blocker Encountered:** LibTorch API complexity (torch::jit::load signature unclear)
-  - `#include <torch/torch.h>` loaded correctly; header details need verification
-  - Solution: Extract correct API from libtorch CMake target or docs
+  - Architecture design for fix_wall_gran integration completed
+  - **GRILLING SESSION COMPLETED** — Design decisions locked in (see Spec 04 Design below)
+
+- **Design Decisions (Finalized from Grilling):**
+  
+  **Q1: Torch Loading** — Check Spec 02 (likely already implemented)
+  
+  **Q3: Wall Types** → **A) Primitive walls only** for Phase 3C; mesh walls deferred to Phase 3D+
+  
+  **Q4: Normal Direction (GENERALIZED)** → **Use `delta` from `primitiveWall_->resolveContact()`**
+    - `delta` already encodes the wall normal direction (pointing from wall toward particle)
+    - Works for any wall orientation (xy, yz, xz planes; cylinders; any direction)
+    - Compute `s_unit = |deltan| / L_actual` where `deltan = ||delta||`
+    - No direct normal() method exists; delta IS the normal
+  
+  **Q5: Quaternion** → **A) Use `atom->quaternion[iPart]`** (from Spec 03 AtomVecSurrogate)
+  
+  **Q6: Characteristic Length** → **A) Use `atom->characteristic_length[iPart]`** (from Spec 03)
+  
+  **Q7: Surrogate Integration** → **Follow superquadric pattern; query only if `deltan <= cutoff`**
+    - Call `primitiveWall_->resolveContact()` first (fast sphere-based cutoff)
+    - If close enough, query surrogate for real overlap
+    - Use surrogate output directly (no analytical refinement; Spec 04 R04.1: surrogate is sole geometric source)
+  
+  **Q8: Contact History Hard-Zeroing** → **Follow superquadric pattern: zero when `deltan > 0.0`**
+    - Unified logic for both superquadrics and surrogates
+  
+  **Q9: Shape Mismatch Detection** → **A) Trust folder structure; document assumption**
+    - Model shape inferred from path: `/SS_models/{shape_name}-walls/model.pt`
+    - Phase 3C assumption; future Phase 3D+ may add explicit metadata field
+    - Add note in code, MEMORY.md, and Spec 04 requirements
+  
+  **Q10: Extrapolation Skip** → **Conservative heuristic: skip if `s_unit > 3 * L_actual`**
+    - Safe for any shape; optimizable in Phase 3D+ with shape metadata
+    - **TO BE REVIEWED** for elongated shapes (non-cubic) — document in Spec 04
+    - May need shape-specific thresholds later
+
 - **Next Steps:**
-  - Verify torch::jit::load correct call syntax (possibly `torch::jit::load(std::shared_ptr...)` or via `script::Module`)
-  - Complete surrogate_contact.h with correct API
-  - Integrate into fix_wall_gran.cpp post_force_primitive() method
-  - Implement contact history hard-zeroing (Spec 04, R04.6)
-  - Add runtime model validation and warnings
-- **Estimated Remaining Effort:** 3–4 hours (blocked on torch API clarification)
+  1. ✅ Check Spec 02 for existing torch::jit::load implementation
+  2. Complete surrogate_contact.h with corrected delta-based normal computation
+  3. Integrate into fix_wall_gran.cpp::post_force_primitive()
+  4. Document all design decisions in:
+     - Code comments (surrogate_contact.h, fix_wall_gran.cpp)
+     - MEMORY.md (this section)
+     - Spec 04 requirements.md (add Phase 3C assumptions & Phase 3D+ TODOs)
+  5. Test with input file: `atom_style surrogate ss-cube` + simple wall contact
+
+- **Estimated Remaining Effort:** 2–3 hours (torch API already found, design locked)
 
 #### ⏳ Spec 05: Testing (PENDING)
 - **Depends on:** Spec 04 completion
