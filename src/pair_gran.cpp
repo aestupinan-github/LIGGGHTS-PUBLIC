@@ -239,10 +239,18 @@ void PairGran::init_style()
   if(strcmp(update->unit_style,"metal") ==0 || strcmp(update->unit_style,"real") == 0)
     error->all(FLERR,"Cannot use a non-consistent unit system with pair gran. Please use si,cgs or lj.");
 
-  if (!atom->sphere_flag && !atom->superquadric_flag && !atom->shapetype_flag)
-    error->all(FLERR,"Pair granular requires atom style sphere, superquadric or convexhull");
-  if (comm->ghost_velocity == 0)
-    error->all(FLERR,"Pair granular requires ghost atoms store velocity");
+  if (!atom->sphere_flag && !atom->superquadric_flag && !atom->shapetype_flag
+#ifdef SURROGATE_ACTIVE_FLAG
+      && !atom->surrogate_flag
+#endif
+  )
+    error->all(FLERR,"Pair granular requires atom style sphere, superquadric, convexhull or surrogate");
+  
+  // Ensure ghost atoms store velocity (needed for proper force calculations)
+  // Set this automatically if not already set (avoids user error)
+  if (comm->ghost_velocity == 0) {
+    comm->ghost_velocity = 1;
+  }
 
   // check if a fix rigid is registered - important for damp
   

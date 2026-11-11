@@ -17,6 +17,9 @@ atom_style      surrogate ss-cube
 dimension       3
 boundary        f f f
 
+# Pair style gran with shear history requires newton off
+newton          off
+
 # ===== Geometry =====
 region          domain block -5.0 5.0 -5.0 5.0 0.0 20.0 units box
 create_box      1 domain
@@ -56,13 +59,17 @@ fix             gravity all gravity 9.81 vector 0.0 0.0 -1.0
 fix             wall all wall/gran model hertz tangential history primitive type 1 zplane 0.0
 
 # ===== Contact Model =====
-# Hertz contact + tangential history (specified in wall/gran fix for wall contact)
-# For particle-particle: not implemented for surrogate in Phase 3C
-# We use a dummy pair style to satisfy LIGGGHTS initialization
-pair_style      none
+# For surrogate particles with wall contact only (Phase 3C):
+# Wall/gran fix handles all contact via surrogate model
+# Pair style gran is used for neighbor list building only (no particle-particle contacts in this test)
+
+pair_style      gran model hertz tangential history
+
+# Define minimal pair coefficients (required for pair_style gran)
+pair_coeff      * *
 
 # Disable atom sorting (not needed for single particle)
-neigh_modify    check no
+neigh_modify    check no delay 0
 
 # ===== Time Integration =====
 timestep        0.0001
