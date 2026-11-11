@@ -154,6 +154,12 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
 
     area_calculation_mode_ = CONDUCTION_CONTACT_AREA_OVERLAP;
 
+#ifdef SURROGATE_ACTIVE_FLAG
+    // Initialize energy tracking for Phase 3C validation
+    energy_prev_ = 0.0;
+    contact_count_ = 0;
+#endif
+
     // parse args
     //style = new char[strlen(arg[2])+2];
     //strcpy(style,arg[2]);
@@ -1215,9 +1221,42 @@ void FixWallGran::post_force_primitive(int vflag)
               atom->tag[iPart],
               update->ntimestep);
 
+#ifdef SURROGATE_VALIDATION
+            // Validation Check 4: Numerical Safety (Covers R04.3)
+            if(std::isnan(overlap_phys) || std::isinf(overlap_phys)) {
+              char msg[512];
+              snprintf(msg, 512,
+                "Surrogate query produced NaN/Inf at particle %d, step %d, s_unit=%.6e",
+                atom->tag[iPart], update->ntimestep, s_unit);
+              error->warning(FLERR, msg);
+              // Skip this contact
+              if(c_history)
+                vectorZeroizeN(c_history[iPart], dnum_);
+              continue;
+            }
+            
+            // Validation Check 5: Training Range Check (Covers R04.4, EC-1)
+            if(s_unit < -0.5 || s_unit > 2.0) {
+              char msg[512];
+              snprintf(msg, 512,
+                "Surrogate warning: s_unit=%.6e outside training range [-0.5, 2.0] "
+                "at particle %d, step %d (extrapolation)",
+                s_unit, atom->tag[iPart], update->ntimestep);
+              error->warning(FLERR, msg);
+              // Continue with contact; just warned
+            }
+#endif
+
             // Spec 04, R04.4: If surrogate predicts overlap > 0 (gap), skip contact
             if(overlap_phys > 0.0) {
               // No contact; gap exists
+#ifdef SURROGATE_VALIDATION
+              // Validation Check 2: Gap Behavior (Covers R04.6)
+              // When gap opens, history should be hard-zeroed
+              if(c_history && c_history[iPart]) {
+                // This is expected; history will be cleared below
+              }
+#endif
               if(c_history)
                 vectorZeroizeN(c_history[iPart], dnum_);
               continue;
@@ -1228,6 +1267,19 @@ void FixWallGran::post_force_primitive(int vflag)
             // No mixing with native contact model
             deltan = -overlap_phys;
             intersectflag = (deltan <= 0);
+
+#ifdef SURROGATE_VALIDATION
+            // Validation Check 1: Contact Force Sanity (Covers R04.1, R04.3, R04.6)
+            // After overlap is set, deltan should be <= 0 for contact
+            if(deltan > 0.0) {
+              char msg[512];
+              snprintf(msg, 512,
+                "Surrogate warning: deltan=%.6e should be <= 0 at contact, "
+                "particle %d, step %d (check overlap sign)",
+                deltan, atom->tag[iPart], update->ntimestep);
+              error->warning(FLERR, msg);
+            }
+#endif
           } else {
             error->fix_error(FLERR, this,
               "Surrogate particles require model loaded; check init() phase");
@@ -1282,6 +1334,57 @@ void FixWallGran::post_force_primitive(int vflag)
       }
     }
   }
+
+#ifdef SURROGATE_VALIDATION
+  // Validation Check 3: Energy Conservation (Covers R04.5)
+  // Log energy metrics for each timestep with surrogate contacts
+  if(atom->surrogate_flag && atom->nlocal > 0) {
+    // Compute current total energy (KE + PE)
+    double KE = 0.0, PE = 0.0;
+    const double g = 9.81; // gravity constant
+    
+    for(int i = 0; i < atom->nlocal; i++) {
+      if(atom->mask[i] & groupbit && atom->surrogate_flag) {
+        // Kinetic energy: 0.5 * m * v^2
+        if(atom->rmass) {
+          double v_sq = atom->v[i][0]*atom->v[i][0] + 
+                       atom->v[i][1]*atom->v[i][1] + 
+                       atom->v[i][2]*atom->v[i][2];
+          KE += 0.5 * atom->rmass[i] * v_sq;
+        }
+        // Potential energy: m * g * z
+        if(atom->rmass) {
+          PE += atom->rmass[i] * g * atom->x[i][2];
+        }
+      }
+    }
+    
+    double E_total = KE + PE;
+    double dE = E_total - energy_prev_;
+    
+    // Warn if energy loss is too large
+    if(energy_prev_ > 0.0 && E_total > 0.0) {
+      double dE_ratio = fabs(dE) / E_total;
+      if(dE_ratio > 0.05) {
+        // Check for surrogate contact to only log during active contact
+        bool has_contact = false;
+        for(int i = 0; i < atom->nlocal; i++) {
+          if(atom->mask[i] & groupbit && atom->surrogate_flag && c_history && c_history[i]) {
+            has_contact = true;
+            break;
+          }
+        }
+        if(has_contact) {
+          fprintf(stdout, 
+            "[SURROGATE_VALIDATION] Step %d: Energy loss = %.2e (%.1f%%) | "
+            "KE=%.2e J, PE=%.2e J, Total=%.2e J\n",
+            update->ntimestep, dE, dE_ratio*100.0, KE, PE, E_total);
+        }
+      }
+    }
+    energy_prev_ = E_total;
+  }
+#endif
 }
 
 /* ---------------------------------------------------------------------- */

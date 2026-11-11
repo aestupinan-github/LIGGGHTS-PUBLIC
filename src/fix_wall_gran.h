@@ -321,6 +321,10 @@ class FixWallGran : public Fix, public LIGGGHTS::IContactHistorySetup {
 
 #ifdef SURROGATE_ACTIVE_FLAG
   std::unique_ptr<SurrogateContactModel> surrogate_contact_model_;
+  
+  // Validation diagnostics (Phase 3C)
+  double energy_prev_;
+  int contact_count_;
 #endif
 
   // class to keep track of wall contacts
