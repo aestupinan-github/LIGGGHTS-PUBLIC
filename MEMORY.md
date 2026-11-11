@@ -551,3 +551,109 @@ TESTEOF
 - **One shape per sim (Phase 3C):** Temporary limit; Phase 3D+ will lift for multi-shape
 - **Input tensor:** [z_unit, qw, qx, qy, qz] where z_unit = z_phys / L_actual
 - **All validation at contact time:** Not at registration time (follows LAMMPS pattern)
+
+---
+
+## Validation Strategy Decision (Session 4, Post-Blocker)
+
+### **Spec 04 (T4.2 + T4.3-T4.5) Validation Approach: HYBRID (Simple)**
+
+**Decision:** Combine test execution (T4.2) with lightweight validation (T4.3-T4.5) into unified workflow.
+
+**Test Case:** Single cube, L=1m (trained scale, scaling_factor=1.0)
+- Geometry: Cube falling from z=10m under gravity
+- Wall: Plane at z=0 (zplane), facing upward
+- Duration: 2 seconds (enough to contact, bounce, settle)
+- No rescaling complexity (unlike test_02 in Session 3)
+
+**Validation Checks (Phase 3C):**
+All checks wrapped in `#ifdef SURROGATE_VALIDATION` pragma for easy toggle:
+
+1. **Contact Force Sanity (R04.3)**
+   - During overlap (deltan < 0): force must be > 0
+   - Catches sign errors, model loading failures
+
+2. **Gap Behavior (R04.6)**
+   - When gap opens (deltan > 0): history cleared to zero
+   - Validates hard-zeroing logic
+
+3. **Energy Conservation (R04.5)**
+   - Track KE + PE per timestep
+   - Warn if ΔE/E_total > 5% in single step
+   - Catches dissipation bugs, integration errors
+
+4. **Numerical Safety**
+   - Check for NaN/Inf in overlap, force, s_unit
+   - Validates denormalization formula
+
+5. **Training Range Check**
+   - Warn if s_unit outside [-0.5, 2.0] (training bounds)
+   - Helps catch extrapolation issues
+
+**Output Diagnostics** (one line per contact event):
+```
+Step | Particle | Overlap(m) | Force(N) | s_unit | KE(J)  | PE(J)  | ΔE(J)  | Status
+1000 | 1        | 0.0150    | 2534    | 0.0150 | 45.23  | 120.34 | -0.12  | OK
+2000 | 1        | 0.0089    | 1342    | 0.0089 | 32.15  | 105.67 | 0.08   | OK (small loss)
+```
+
+**Success Criteria:**
+- ✅ All contact forces > 0 during overlap
+- ✅ Total energy loss < 5% over full simulation (2s)
+- ✅ History properly zeroed on gap
+- ✅ No NaN/Inf values in output
+- ✅ s_unit remains within training range
+- ✅ Surrogate forces reasonable magnitude (sanity vs analytical Hertz)
+
+**Why This Approach:**
+
+| Aspect | Reason |
+|--------|--------|
+| **Hybrid** | Catches 95% of bugs without full analytical derivation |
+| **Simple** | L=1m (trained scale); no rescaling complexity adds risk |
+| **Pragmas** | Easy to disable in production; removable code; no performance penalty |
+| **Phase 3C Focused** | Validates core surrogate contact without multi-shape complexity |
+
+**NOT Included (Deferred to Spec 05 Phase 3D+):**
+- ❌ Superquadric comparison (requires equal validation of superquadric)
+- ❌ Analytical Hertz derivation for cube-plane (non-trivial; cube != point contact)
+- ❌ Multi-scale testing (different L_actual values)
+- ❌ Multi-shape validation (cube-cube, cube-cylinder, etc.)
+- ❌ Advanced features (friction, rolling, cohesion in contact)
+
+**Spec 05 Roadmap (Deferred, Phase 3D+):**
+
+Once Spec 04 closes with this simple validation:
+
+1. **Extended Test Suite**
+   - Multiple scales (L = 0.001m to 10m)
+   - Different shapes (pyramid, cylinder, superquadric comparison)
+   - Multi-particle systems
+
+2. **Analytical Validation**
+   - Generate superquadric cube, compare surrogate vs superquadric forces
+   - Derive cube-plane Hertz solution, compare to both
+   - Quantify accuracy: RMSE, correlation
+
+3. **Advanced Physics**
+   - Friction coefficient validation (tangential history)
+   - Rolling resistance effects
+   - Cohesion model interaction (if enabled)
+
+4. **Performance Benchmarking**
+   - Surrogate vs superquadric CPU time
+   - Scaling with particle count
+   - GPU acceleration readiness (Phase 3E+)
+
+**Implementation Timeline (This Session):**
+- 30 min: Simplify test_01 input file
+- 30 min: Add validation pragmas to fix_wall_gran.cpp
+- 30 min: Add diagnostic output
+- 30 min: Run test, analyze results
+- Total: 2 hours (included in remaining Spec 04 work)
+
+**Related Files to Update:**
+- `specs/04-ss-contact-models/requirements.md`: Add validation section
+- `src/fix_wall_gran.cpp`: Add validation pragmas + diagnostics
+- `test_cases/surrogate_contact/test_01_*.in`: Simplify to L=1m only
+

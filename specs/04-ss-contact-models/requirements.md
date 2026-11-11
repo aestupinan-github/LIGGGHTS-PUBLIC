@@ -275,4 +275,95 @@ if(atom->surrogate_flag && deltan > 0.0) {
 
 **Mapping to Model Input Tensor:** `[s_unit, qw, qx, qy, qz]` (same 5-feature format as training)
 
+### Validation Strategy (Phase 3C - Session 4 Decision)
+
+**Approach: Lightweight Hybrid Validation**
+
+Phase 3C validation focuses on detecting major bugs without extensive analytical derivation. All checks are wrapped in `#ifdef SURROGATE_VALIDATION` pragma for easy toggle.
+
+**Test Case Design:**
+- Single cube: L=1.0 m (trained scale, scaling_factor=1.0)
+- Free fall from z=10 m under gravity
+- Wall contact at z=0 (plane, zplane primitive)
+- Duration: 2 seconds (enough for contact, bounce, settle)
+- Metrics: Contact force, energy conservation, s_unit range
+
+**Validation Checks:**
+
+1. **Contact Force Sanity (Covers R04.1, R04.3, R04.6)**
+   - Assertion: During overlap (deltan < 0), normal_force > 0
+   - Rationale: Catches sign errors, model loading failures, physics model integration bugs
+   - Output: Warning if force ≤ 0 during contact
+
+2. **Gap Behavior (Covers R04.6)**
+   - Assertion: When gap opens (deltan > 0), contact history is hard-zeroed
+   - Rationale: Validates hard-zeroing logic, prevents stale friction state
+   - Output: Warning if history non-zero after contact break
+
+3. **Energy Conservation (Covers R04.5)**
+   - Metric: ΔE_step / E_total < 5% per timestep
+   - Metric: ΔE_total / E_initial < 5% over full simulation
+   - Rationale: Detects dissipation bugs, integration errors, force sign errors
+   - Output: Step-by-step energy log; warning if loss exceeds threshold
+
+4. **Numerical Safety (Covers R04.3)**
+   - Assertion: No NaN/Inf in overlap, force, s_unit, quaternion
+   - Rationale: Catches denormalization formula errors, model failures
+   - Output: Hard error if NaN/Inf detected
+
+5. **Training Range Check (Covers R04.4, EC-1)**
+   - Assertion: During contact, s_unit ∈ [-0.5, 2.0] (model training bounds)
+   - Rationale: Warns when extrapolating; helps calibrate skip threshold
+   - Output: Warning if s_unit outside range (does not skip contact, but flags it)
+
+**Success Criteria:**
+- All contact forces > 0 during overlap
+- Total energy loss < 5% over full simulation
+- History properly zeroed on gap
+- No NaN/Inf values
+- s_unit stays within training range (or logged as extrapolation)
+
+**Output Diagnostics (one line per contact timestep):**
+```
+Step | PID | Overlap(m) | Force(N) | s_unit | KE(J)  | PE(J)  | ΔE(J)  | Checks
+ 100 | 1   | 0.0150    | 2534    | 0.0150 | 45.23  | 120.34 | -0.12  | OK✓
+ 200 | 1   | 0.0089    | 1342    | 0.0089 | 32.15  | 105.67 | 0.08   | OK✓
+ 300 | 1   | 0.0000    | 0       | 0.0000 | 18.92  | 95.23  | -0.05  | GAP (history cleared)
+```
+
+**NOT Included (Deferred to Spec 05 Phase 3D+):**
+- Superquadric comparison (requires validating superquadric as reference)
+- Analytical Hertz solution (cube-plane contact is non-trivial)
+- Multi-scale testing (different L_actual)
+- Multi-shape validation (cube-cube, cube-cylinder)
+- Advanced physics (friction, rolling, cohesion in contact)
+
+**Pragmas (Implementation Pattern):**
+```cpp
+#ifdef SURROGATE_VALIDATION
+  // Check 1: Force sanity
+  if(deltan < 0.0 && normal_force <= 0.0) {
+    char msg[256];
+    snprintf(msg, 256, "Contact force sanity check FAILED at step %d, particle %d", step, id);
+    error->warning(FLERR, msg);
+  }
+  
+  // Check 2: Energy conservation
+  double dE = (KE_new + PE_new) - (KE_old + PE_old);
+  if(fabs(dE / E_total) > 0.05) {
+    // Log warning + diagnostic
+  }
+  
+  // ... remaining checks
+#endif
+```
+
+**Transition Path:**
+1. Implement all 5 checks with pragmas
+2. Run test_01 (L=1.0 m cube falling)
+3. Verify all checks pass
+4. Document results in session report
+5. Remove pragmas in final production build (or keep for debugging)
+6. Spec 05 will extend to multi-scale, multi-shape, analytical validation
+
 ---
