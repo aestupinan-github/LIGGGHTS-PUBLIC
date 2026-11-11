@@ -50,6 +50,10 @@ fix             materialproperties4 all property/global coefficientFriction pera
 # Initial velocity: 0 (free fall)
 velocity        all set 0.0 0.0 0.0
 
+# NVE integration (Newtonian Velocity Verlet Ensemble)
+# Applies Newton's laws of motion to surrogate particles
+fix             integrate all nve/sphere
+
 # Gravity: 9.81 m/s² downward
 fix             gravity all gravity 9.81 vector 0.0 0.0 -1.0
 
