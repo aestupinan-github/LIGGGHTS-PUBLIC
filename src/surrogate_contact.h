@@ -196,22 +196,30 @@ public:
       position_z = position_z.to(device).to(dtype);
       quat_tensor = quat_tensor.to(device).to(dtype);
       
-      // Forward pass with two arguments (wrapped in IValue for torch::jit::Module::forward)
-      std::vector<torch::jit::IValue> model_input;
-      model_input.push_back(position_z);
-      model_input.push_back(quat_tensor);
-      torch::Tensor output = model.forward(model_input).toTensor();
-      double log10_output = output[0].item<double>();
-      
-      // Step 4: Validate model output
-      validator.validate_model_output(log10_output, z_unit, particle_id);
-      
-      // Step 5-6: Denormalize and rescale
-      double overlap_phys = validator.validate_outputs_from_surrogate(
-        log10_output, z_unit,
-        scaler_record.y_mean, scaler_record.y_scale,
-        L_actual,
-        particle_id);
+       // Forward pass with two arguments (wrapped in IValue for torch::jit::Module::forward)
+       std::vector<torch::jit::IValue> model_input;
+       model_input.push_back(position_z);
+       model_input.push_back(quat_tensor);
+       torch::Tensor output = model.forward(model_input).toTensor();
+       double log10_output = output[0].item<double>();
+       
+       // DIAGNOSTIC: Log raw model output
+       if(z_unit < 0.5) {  // Log when close to or past surface
+         fprintf(stderr,
+           "[MODEL_RAW_OUTPUT] Step=%d, z_unit=%.6e, log10_output=%.6e, "
+           "y_mean=%.6e, y_scale=%.6e\n",
+           step, z_unit, log10_output, scaler_record.y_mean, scaler_record.y_scale);
+       }
+       
+       // Step 4: Validate model output
+       validator.validate_model_output(log10_output, z_unit, particle_id);
+       
+       // Step 5-6: Denormalize and rescale
+       double overlap_phys = validator.validate_outputs_from_surrogate(
+         log10_output, z_unit,
+         scaler_record.y_mean, scaler_record.y_scale,
+         L_actual,
+         particle_id);
       
       // Step 7: Check physical validity (wall contact: overlap ≤ 0 means contact)
       if (overlap_phys > 0.0) {

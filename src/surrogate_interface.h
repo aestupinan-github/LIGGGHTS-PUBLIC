@@ -54,12 +54,15 @@ static constexpr double LOG10_OVERLAP_MAX_TRAIN = 0.5;
  * @return overlap_unit Denormalized overlap (nondimensional)
  * 
  * @note For current models (run_029, run_030): y_mean=0, y_scale=1
- *       so formula simplifies to: 10^(log10_output) - eps
+ *       so formula simplifies to: -(10^(log10_output)) - eps
+ *       (Negative sign because model outputs log10 of absolute overlap,
+ *        and we need signed overlap: negative = penetration)
  */
 inline double denormalize_overlap(double log10_output, double y_mean, double y_scale, double eps)
 {
-  // Reverse normalization: exponentiate + remove eps
-  double overlap_unit = std::pow(10.0, (log10_output * y_scale + y_mean)) - eps;
+  // Reverse normalization: exponentiate + remove eps + NEGATE for contact semantics
+  // Model outputs log10(|overlap|); we need signed overlap where negative = contact
+  double overlap_unit = -std::pow(10.0, (log10_output * y_scale + y_mean)) - eps;
   return overlap_unit;
 }
 
