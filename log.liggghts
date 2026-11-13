@@ -116,7 +116,7 @@ thermo_style    custom step atoms c_thermo_kinetic c_thermo_potential
 run             20000
 Loading surrogate contact model for shape 'ss-cube' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:679)
 Surrogate model loaded: shape='ss-cube', model='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/SS_models/ss-cube-walls/model.pt', scalers='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/SS_models/ss-cube-walls/scalers.dat' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:692)
-Setting up run at Wed Nov 11 09:54:54 2026
+Setting up run at Fri Nov 13 16:23:21 2026
 
 Memory usage per processor = 4.32716 Mbytes
     Step    Atoms       thermo_k       thermo_p 
@@ -249,4 +249,102 @@ Memory usage per processor = 4.32716 Mbytes
    12600        1      39.998871              0 
    12700        1      40.636293              0 
    12800        1      41.278754              0 
-   12900        1      41.926254        
+   12900        1      41.926254              0 
+   13000        1      42.578793              0 
+   13100        1      43.236371              0 
+   13200        1      43.898988              0 
+   13300        1      44.566643              0 
+   13400        1      45.239338              0 
+   13500        1      45.917071              0 
+   13600        1      46.599843              0 
+   13700        1      47.287655              0 
+   13800        1      47.980505              0 
+   13900        1      48.678394              0 
+   14000        1      49.381322              0 
+   14100        1      50.089289              0 
+   14200        1      50.802295              0 
+   14300        0              0              0 
+   14400        0              0              0 
+   14500        0              0              0 
+   14600        0              0              0 
+   14700        0              0              0 
+   14800        0              0              0 
+   14900        0              0              0 
+   15000        0              0              0 
+   15100        0              0              0 
+   15200        0              0              0 
+   15300        0              0              0 
+   15400        0              0              0 
+   15500        0              0              0 
+   15600        0              0              0 
+   15700        0              0              0 
+   15800        0              0              0 
+   15900        0              0              0 
+   16000        0              0              0 
+   16100        0              0              0 
+   16200        0              0              0 
+   16300        0              0              0 
+   16400        0              0              0 
+   16500        0              0              0 
+   16600        0              0              0 
+   16700        0              0              0 
+   16800        0              0              0 
+   16900        0              0              0 
+   17000        0              0              0 
+   17100        0              0              0 
+   17200        0              0              0 
+   17300        0              0              0 
+   17400        0              0              0 
+   17500        0              0              0 
+   17600        0              0              0 
+   17700        0              0              0 
+   17800        0              0              0 
+   17900        0              0              0 
+   18000        0              0              0 
+   18100        0              0              0 
+   18200        0              0              0 
+   18300        0              0              0 
+   18400        0              0              0 
+   18500        0              0              0 
+   18600        0              0              0 
+   18700        0              0              0 
+   18800        0              0              0 
+   18900        0              0              0 
+   19000        0              0              0 
+   19100        0              0              0 
+   19200        0              0              0 
+   19300        0              0              0 
+   19400        0              0              0 
+   19500        0              0              0 
+   19600        0              0              0 
+   19700        0              0              0 
+   19800        0              0              0 
+   19900        0              0              0 
+   20000        0              0              0 
+Loop time of 0.264004 on 1 procs for 20000 steps with 0 atoms, finish time Fri Nov 13 16:23:21 2026
+
+
+Pair  time (%) = 0.0027392 (1.03756)
+Neigh time (%) = 0.167332 (63.3823)
+Comm  time (%) = 0.00222013 (0.840945)
+Outpt time (%) = 0.000588713 (0.222994)
+Other time (%) = 0.091124 (34.5162)
+
+Nlocal:    0 ave 0 max 0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:    0 ave 0 max 0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:    0 ave 0 max 0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 0
+Neighbor list builds = 20000
+Dangerous builds = 0
+
+# ===== Output =====
+print "===== TEST 01 COMPLETE ====="
+===== TEST 01 COMPLETE =====
+print "Cube (L=1m) fell and contacted wall via surrogate model"
+Cube (L=1m) fell and contacted wall via surrogate model
+print "Expected: Contact force > 0 after ~t=1.41s (free fall from 10m)"
+Expected: Contact force > 0 after ~t=1.41s (free fall from 10m)

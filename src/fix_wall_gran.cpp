@@ -1171,85 +1171,82 @@ void FixWallGran::post_force_primitive(int vflag)
 
       // **Surrogate Contact Model Query (Spec 04, T4.2)**
       // Phase 3C Design: Use delta from primitiveWall_->resolveContact() for generalized normal
-      // s_unit = |deltan| / L_actual works for any wall orientation (xy, yz, xz planes, etc.)
-      #ifdef SURROGATE_ACTIVE_FLAG
-      if(atom->surrogate_flag) {
-        // Spec 04, R04.2: Query surrogate only if close enough (follow superquadric pattern)
-        if(deltan <= 0 || deltan < contactDistanceMultiplier*radius[iPart]) {
-          
-          // Get characteristic length for surrogate particle
-          double L_actual = atom->characteristic_length[iPart];
-          if(L_actual <= 0.0) {
-            error->fix_error(FLERR, this, 
-              "Surrogate particle has invalid characteristic_length");
-          }
+       // Spec 04, Phase 3C: Query surrogate for particles that fit within bounding sphere
+       #ifdef SURROGATE_ACTIVE_FLAG
+       if(atom->surrogate_flag) {
+         // Get characteristic length for surrogate particle
+         double L_actual = atom->characteristic_length[iPart];
+         if(L_actual <= 0.0) {
+           error->fix_error(FLERR, this, 
+             "Surrogate particle has invalid characteristic_length");
+         }
 
-          // Compute normalized distance along wall normal (generalized, works for any wall orientation)
-          // s_unit = |deltan| / L_actual
-          // deltan comes from primitiveWall_->resolveContact(), already encodes wall normal direction
-          double s_unit = fabs(deltan) / L_actual;
+         // Bounding sphere radius for cube: sqrt(3)/2 * L_actual ≈ 0.866 * L_actual
+         // Query surrogate when bounding sphere is within detection range of wall
+         double bounding_radius = 0.866 * L_actual;
+         double detection_threshold = 3.0 * L_actual;  // Skip if further than 3 cube lengths
+         
+         // Centre distance from wall: deltan + radius of particle (for sphere approximation)
+         // For surrogate particles: use bounding sphere radius to define effective "particle"
+         double centre_distance = deltan + bounding_radius;
+         
+         // Only process if close enough for contact
+         if(centre_distance < detection_threshold) {
+           // Compute signed, normalized distance: s_unit = centre_distance / L_actual
+           // This is the model input (ranges from about -0.5 to 3.0 for most contacts)
+           // Negative means particle centre is below wall surface
+           double s_unit = centre_distance / L_actual;
 
-          // Spec 04, R04.10: Skip if too far (no physical contact possible)
-          // Conservative: skip if s_unit > 3 * L_actual
-          // Note: This may be too conservative for elongated shapes (Phase 3D+ review needed)
-          const double SKIP_THRESHOLD = 3.0;
-          if(s_unit > SKIP_THRESHOLD * L_actual) {
-            // Too far; no contact possible
-            if(c_history)
-              vectorZeroizeN(c_history[iPart], dnum_);
-            continue;
-          }
+           // Get particle quaternion and validate
+           double quat[4];
+           if(atom->quaternion) {
+             vectorCopy4D(atom->quaternion[iPart], quat);
+           } else {
+             error->fix_error(FLERR, this,
+               "Surrogate particle missing quaternion data");
+           }
 
-          // Get particle quaternion and validate
-          double quat[4];
-          if(atom->quaternion) {
-            vectorCopy4D(atom->quaternion[iPart], quat);
-          } else {
-            error->fix_error(FLERR, this,
-              "Surrogate particle missing quaternion data");
-          }
-
-          // Query surrogate model for contact overlap (Spec 04, R04.2: Contact Calculation Flow)
-          // SurrogateContactModel::query_overlap executes 7-step pipeline:
-          // (1) Validate inputs, (2) Prepare tensor, (3) Model forward, (4) Validate output,
-          // (5-6) Denormalize + rescale, (7) Physical validity check
-          if(surrogate_contact_model_ && surrogate_contact_model_->is_loaded()) {
-            double overlap_phys = surrogate_contact_model_->query_overlap(
-              s_unit,
-              L_actual,
-              quat,
-              atom->tag[iPart],
-              update->ntimestep);
+           // Query surrogate model for contact overlap (Spec 04, R04.2: Contact Calculation Flow)
+           // SurrogateContactModel::query_overlap executes 7-step pipeline:
+           // (1) Validate inputs, (2) Prepare tensor, (3) Model forward, (4) Validate output,
+           // (5-6) Denormalize + rescale, (7) Physical validity check
+           if(surrogate_contact_model_ && surrogate_contact_model_->is_loaded()) {
+             double overlap_phys = surrogate_contact_model_->query_overlap(
+               s_unit,
+               L_actual,
+               quat,
+               atom->tag[iPart],
+               update->ntimestep);
 
 #ifdef SURROGATE_VALIDATION
-            // Validation Check 4: Numerical Safety (Covers R04.3)
-            if(std::isnan(overlap_phys) || std::isinf(overlap_phys)) {
-              char msg[512];
-              snprintf(msg, 512,
-                "Surrogate query produced NaN/Inf at particle %d, step %d, s_unit=%.6e",
-                atom->tag[iPart], update->ntimestep, s_unit);
-              error->warning(FLERR, msg);
-              // Skip this contact
-              if(c_history)
-                vectorZeroizeN(c_history[iPart], dnum_);
-              continue;
-            }
-            
-            // Validation Check 5: Training Range Check (Covers R04.4, EC-1)
-            if(s_unit < -0.5 || s_unit > 2.0) {
-              char msg[512];
-              snprintf(msg, 512,
-                "Surrogate warning: s_unit=%.6e outside training range [-0.5, 2.0] "
-                "at particle %d, step %d (extrapolation)",
-                s_unit, atom->tag[iPart], update->ntimestep);
-              error->warning(FLERR, msg);
-              // Continue with contact; just warned
-            }
+             // Validation Check 4: Numerical Safety (Covers R04.3)
+             if(std::isnan(overlap_phys) || std::isinf(overlap_phys)) {
+               char msg[512];
+               snprintf(msg, 512,
+                 "Surrogate query produced NaN/Inf at particle %d, step %d, s_unit=%.6e",
+                 atom->tag[iPart], update->ntimestep, s_unit);
+               error->warning(FLERR, msg);
+               // Skip this contact
+               if(c_history)
+                 vectorZeroizeN(c_history[iPart], dnum_);
+               continue;
+             }
+             
+             // Validation Check 5: Training Range Check (Covers R04.4, EC-1)
+             if(s_unit < -0.5 || s_unit > 2.0) {
+               char msg[512];
+               snprintf(msg, 512,
+                 "Surrogate warning: s_unit=%.6e outside training range [-0.5, 2.0] "
+                 "at particle %d, step %d (extrapolation)",
+                 s_unit, atom->tag[iPart], update->ntimestep);
+               error->warning(FLERR, msg);
+               // Continue with contact; just warned
+             }
 #endif
 
-            // Spec 04, R04.4: If surrogate predicts overlap > 0 (gap), skip contact
-            if(overlap_phys > 0.0) {
-              // No contact; gap exists
+             // Spec 04, R04.4: If surrogate predicts overlap > 0 (gap), skip contact
+             if(overlap_phys > 0.0) {
+               // No contact; gap exists
 #ifdef SURROGATE_VALIDATION
               // Validation Check 2: Gap Behavior (Covers R04.6)
               // When gap opens, history should be hard-zeroed

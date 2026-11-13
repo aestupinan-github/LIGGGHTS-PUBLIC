@@ -176,8 +176,16 @@ public:
     
     try {
       // Step 3: Query model
-      // Convert input to torch tensor (1 sample, 5 features)
-      torch::Tensor input = torch::from_blob(input_tensor, {1, 5}, torch::kFloat64);
+      // Model expects: position_z as scalar/[1] and quat as [1, 4]
+      // Model internally does: torch.unsqueeze(position_z, 1) -> [1, 1]
+      //                        torch.cat([unsqueezed_position_z, quat_norm], 1) -> [1, 5]
+      double pos_z = input_tensor[0];  // z_unit
+      double quat_data[4] = {input_tensor[1], input_tensor[2], input_tensor[3], input_tensor[4]};
+      
+      // Convert to torch tensors
+      // position_z should be shape [1] (batch size 1 with scalar value)
+      torch::Tensor position_z = torch::from_blob(&pos_z, {1}, torch::kFloat64);
+      torch::Tensor quat_tensor = torch::from_blob(quat_data, {1, 4}, torch::kFloat64);
       
       // Get device and dtype from model parameters
       auto params = model.parameters();
@@ -185,10 +193,13 @@ public:
       torch::Device device = (*param_iter).device();
       torch::ScalarType dtype = (*param_iter).scalar_type();
       
-      input = input.to(device).to(dtype);
+      position_z = position_z.to(device).to(dtype);
+      quat_tensor = quat_tensor.to(device).to(dtype);
       
-      // Forward pass
-      std::vector<torch::IValue> model_input{input};
+      // Forward pass with two arguments (wrapped in IValue for torch::jit::Module::forward)
+      std::vector<torch::jit::IValue> model_input;
+      model_input.push_back(position_z);
+      model_input.push_back(quat_tensor);
       torch::Tensor output = model.forward(model_input).toTensor();
       double log10_output = output[0].item<double>();
       
