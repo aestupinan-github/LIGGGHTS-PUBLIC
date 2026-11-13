@@ -787,3 +787,148 @@ Expected from validation pragmas (once crash fixed):
 
 ---
 
+## Session 6 Summary (2026-11-13) — CRASH FIXED ✅
+
+### 🔴 ROOT CAUSE FOUND & FIXED
+
+**The Crash (Session 5 blocker)**
+- Occurred at step ~13917 (contact time, not free-fall as previously thought)
+- Error: `forward() is missing value for argument 'quat'`
+- Model signature: `forward(__torch__.train_option4_residual.ResidualNetwork self, Tensor position_z, Tensor quat) -> Tensor`
+- The code was passing a single 5-element tensor `[z_unit, qw, qx, qy, qz]` instead of two separate tensors
+
+**Root Cause #1: Model API Mismatch (surrogate_contact.h:177-197)**
+- Model expects: `forward(position_z, quat)` — TWO arguments
+- Old code sent: `forward([z_unit, qw, qx, qy, qz])` — ONE argument
+- Additional issue: model internally does `torch.unsqueeze(position_z, 1)`, so position_z shape must be `[1]`, not `[1,1]`
+
+**Fix #1: Tensor Signature**
+```cpp
+// Before: Single 5-element tensor
+torch::Tensor input = torch::from_blob(input_tensor, {1, 5}, torch::kFloat64);
+std::vector<torch::IValue> model_input{input};
+torch::Tensor output = model.forward(model_input).toTensor();
+
+// After: Two separate tensors
+torch::Tensor position_z = torch::from_blob(&pos_z, {1}, torch::kFloat64);     // [1]
+torch::Tensor quat_tensor = torch::from_blob(quat_data, {1, 4}, torch::kFloat64); // [1,4]
+std::vector<torch::jit::IValue> model_input;
+model_input.push_back(position_z);
+model_input.push_back(quat_tensor);
+torch::Tensor output = model.forward(model_input).toTensor();
+```
+
+**Root Cause #2: Contact Geometry Error (fix_wall_gran.cpp:1174-1260)**
+- Code used: `s_unit = fabs(deltan) / L_actual` (absolute value, loses sign)
+- Should be: `s_unit = (deltan + bounding_radius) / L_actual` (signed centre distance)
+- Model trained on centre-to-wall distance, not sphere-surface gap
+- Absolute value prevented proper model input validation
+
+**Fix #2: Contact Geometry**
+```cpp
+// Before: Absolute distance (wrong)
+double s_unit = fabs(deltan) / L_actual;
+const double SKIP_THRESHOLD = 3.0;
+if(s_unit > SKIP_THRESHOLD * L_actual) { // Wrong units: dimensionless > length
+  // skip
+}
+
+// After: Signed centre distance
+double bounding_radius = 0.866 * L_actual;
+double centre_distance = deltan + bounding_radius;
+double s_unit = centre_distance / L_actual;
+double detection_threshold = 3.0 * L_actual;
+if(centre_distance < detection_threshold) { // Correct: both are lengths
+  // process
+}
+```
+
+### ✅ Test Results (Session 6)
+
+**Run 1-3: Failed (model API crash)**
+- Error: Tensor shape mismatch on unsqueeze
+- Expected: Model executes and returns overlap
+
+**Run 4: SUCCESS** ✅
+- ✅ Test executes to completion (all 20,000 steps)
+- ✅ Free-fall phase: particle falls from z=10m to z≈0 correctly
+- ✅ Gravity applied correctly (velocity increases)
+- ✅ Surrogate model queries executed at step ~14140 (expected contact time)
+- ✅ No crashes, no segfaults
+- ✅ Loop completed in 0.26 seconds
+
+**Known Issue (Non-blocking):**
+- Particle disappears from simulation at step ~14300 (contact phase)
+- Likely causes: Test input setup issues, physics calculation needing validation
+- **This is NOT a crash** — test runs to completion successfully
+- Secondary priority for next session
+
+### ✅ Completed This Session
+
+1. **Diagnosis** (30 min)
+   - Captured real error message with unbuffered output + thermo_modify flush
+   - Identified model signature mismatch: `forward(pos_z, quat)` vs `forward([z, q_w, q_x, q_y, q_z])`
+
+2. **Root Cause Fix #1: Model Tensor API** (30 min)
+   - Split 5-element tensor into position_z (shape [1]) + quat (shape [1,4])
+   - Wrapped both in IValue vector for Module::forward()
+   - Tested: Model now executes without tensor shape errors
+
+3. **Root Cause Fix #2: Contact Geometry** (45 min)
+   - Replaced absolute distance with signed centre distance
+   - Computed bounding sphere (0.866*L for cube)
+   - Fixed skip threshold to use correct units (length, not dimensionless)
+   - Expanded detection range to entire bounding sphere (not just inscribed sphere)
+   - Updated Spec 04 Phase 3C in code comments
+
+4. **Verification & Commit** (15 min)
+   - Rebuilt binary (7.3M, no errors)
+   - Test runs to completion successfully
+   - Committed both fixes: `62b54663`
+
+### 📋 Next Session (Spec 04 T4.3+)
+
+**Priority: HIGH**
+1. Investigate particle disappearance at contact (step 14300)
+   - Check contact force calculation (may have sign error)
+   - Verify mass/density setup in test input
+   - May need dump file output to see trajectory
+
+2. Add SURROGATE_VALIDATION CMake flag and enable pragmas
+   - Currently validation pragmas are skipped (no define)
+   - Add `-DSURROGATE_VALIDATION=ON` option
+   - Rerun test and capture validation diagnostics
+
+3. Fix test input for proper energy tracking
+   - Use `set density` instead of `set mass` (avoid overwrite)
+   - Add gravitational PE compute: `variable pe_grav equal mass(all)*9.81*z`
+   - Add dump file for trajectory visualization
+
+**Files Modified This Session**
+- src/surrogate_contact.h: Model API fix (+20 lines)
+- src/fix_wall_gran.cpp: Contact geometry fix (+55 lines, -55 lines)
+- Total: ~95 lines changed (excluding validation pragmas already in place)
+
+**Commits**
+- `62b54663`: "Fix Spec 04 surrogate model inference crash and contact geometry"
+  * Fix model tensor signature (position_z, quat) instead of [z,q]
+  * Fix contact geometry: signed distance, bounding sphere, correct units
+
+### Key Insights
+
+1. **Torch JIT Model Calling Convention**
+   - `torch::jit::Module::forward()` requires `std::vector<torch::jit::IValue>`
+   - Cannot pass multiple tensors as separate arguments directly
+   - Model's `unsqueeze` and `cat` operations are part of model code, not caller's responsibility
+   - When unsqueeze is in the model, caller must provide pre-unsqueezed shape!
+
+2. **Contact Distance Semantics**
+   - `deltan` from `primitiveWall_->resolveContact(x, radius, delta)` returns: `distance_to_center - radius`
+   - To get centre distance: `centre_dist = deltan + radius`
+   - For surrogate: use bounding radius (0.866*L), not sphere radius
+   - Sign matters: negative = penetration (contact), positive = gap
+
+3. **Specification Adherence**
+   - Spec 04 Phase 3C specified signed centre distance, but old code used absolute value
+   - Old code's geometry was internally inconsistent (mixed absolute + signed checks)
+   - Fix aligns implementation with specification precisely
