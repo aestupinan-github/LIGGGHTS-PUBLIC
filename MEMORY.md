@@ -49,6 +49,105 @@ Persistent memory for the surrogate shape (ss) project. Updated at the end of ev
 
 **Status:** RESOLVED ✅
 
+## ⚡ Session 6.5 Summary (2026-11-13) - CRITICAL SIGN FIXES
+
+### 🔴 The Problem
+Particle disappeared in test_01_cube_1m_falling.in:
+- Step 14200: 1 atom (particle falling)
+- Step 14278: Last contact diagnostic
+- Step 14300: 0 atoms (deleted, fell through wall)
+
+Root cause: **Three cascading sign/semantics errors** preventing contact forces.
+
+### ✅ Bugs Fixed
+
+**Bug 1: Denormalization Sign (surrogate_interface.h:62)**
+```diff
+- double overlap_unit = std::pow(10.0, (log10_output * y_scale + y_mean)) - eps;
++ double overlap_unit = -std::pow(10.0, (log10_output * y_scale + y_mean)) - eps;
+```
+- Model outputs log10(|overlap|), always positive
+- Denormalization needed negation to get signed overlap (negative = penetration)
+- Without fix: overlap always positive → gap predicted → no contact force
+
+**Bug 2: s_unit Input Calculation (fix_wall_gran.cpp:1215)**
+```diff
+- double s_unit = (deltan + bounding_radius) / L_actual;
++ double s_unit = fabs(deltan) / L_actual;
+```
+- Spec 04, line 274: s_unit = |deltan| / L_actual
+- Bounding_radius is for detection threshold only, NOT model input
+- Without fix: s_unit = 0.8658 at first approach → model extrapolates wildly → overlap = -8.67 m nonsense
+
+**Bug 3: Overlap Double-Negation (fix_wall_gran.cpp:1291)**
+```diff
+- deltan = -overlap_phys;
++ deltan = overlap_phys;
+```
+- overlap_phys already correctly signed after Fixes 1-2
+- Negation flipped it back to positive (gap) → no contact triggered
+- Without fix: Even with correct overlap, contact skipped
+
+### ✅ Verification
+
+**Before Fix:**
+```
+[MODEL_OUTPUT] overlap_phys=+1.407151e-02 (POSITIVE = GAP, NO CONTACT)
+Step 14300: 0 atoms (deleted)
+```
+
+**After Fixes:**
+```
+[MODEL_OUTPUT] overlap_phys=-9.287154e-06 (NEGATIVE = CONTACT, YES!)
+[SURROGATE_CONTACT] Step=13917... s_unit=1.457054e-04, overlap_phys=-9.287154e-06
+... contact forces computed ...
+Step 20000: 1 atom (survived, at rest on wall)
+Final KE: 7.1757545e-07 J
+```
+
+### 📊 Diagnostic Output
+
+Added 4 diagnostic streams (stderr logging):
+1. `[SURROGATE_APPROACH]`: Particle enters detection range
+2. `[MODEL_RAW_OUTPUT]`: Raw model output (log10_output, y_mean, y_scale)
+3. `[MODEL_OUTPUT]`: Denormalized overlap and gap prediction
+4. `[SURROGATE_CONTACT]`: Each contact step (overlap, deltan, s_unit, L)
+
+Usage: `grep "SURROGATE\|MODEL" stderr`
+
+### 📝 Spec 04 Status
+
+| Requirement | Before | After |
+|---|---|---|
+| R04.1 Hard Boundary | ✗ Gap predicted | ✓ Contact forced |
+| R04.2 Contact Flow | ✗ s_unit wrong | ✓ Correct input |
+| R04.3 Physics Integration | ✗ No forces | ✓ Hertz forces applied |
+| R04.4 Training Range | ✓ Check exists | ✓ In ifdef |
+| R04.5 Feature Vectors | ✓ Prepared | ✓ Used correctly |
+| R04.6 Contact Semantics | ✗ Flipped signs | ✓ Correct signs |
+
+**All core requirements now satisfied. Test passes.**
+
+### 📋 Next Priorities
+1. **Physics Validation:** Compare against Hertz analytical (sphere-plane contact)
+2. **Energy Conservation:** Verify KE + PE + dissipation constant during contact
+3. **Enable `-DSURROGATE_VALIDATION=ON`:** Run full validation checks
+4. **Multi-angle tests:** Cube falling at non-zero orientations
+5. **Restitution tests:** Verify bounce behavior with e=0.9
+
+### 📂 Files Modified
+- `src/surrogate_interface.h` (line 62): Negation in denormalization
+- `src/fix_wall_gran.cpp` (line 1215): |deltan| for s_unit
+- `src/fix_wall_gran.cpp` (line 1291): Remove double-negation
+- `src/surrogate_contact.h` (lines 211-218): Add MODEL_RAW_OUTPUT diagnostic
+
+### ✅ Test Status
+- test_01_cube_1m_falling.in: **PASSES** (particle survives, settles on wall)
+- Ready for analytical validation
+
+---
+
+
 **Root Cause Analysis:**
 The silent MPI_ABORT during `create_atoms` was caused by FOUR cascading bugs:
 
