@@ -1356,6 +1356,20 @@ void FixWallGran::post_force_primitive(int vflag)
         sidata.r =  r0_ - sidata.deltan;
         compute_force(sidata, v_wall); // LEGACY CODE (SPH)
       }
+      
+      // DIAGNOSTIC: Log contact forces for surrogate particles
+      #ifdef SURROGATE_ACTIVE_FLAG
+      if(atom->surrogate_flag && deltan <= 0.0) {
+        // sidata.Fn is the normal force magnitude
+        // For diagnostic: log force at selected contact steps
+        if(update->ntimestep % 100 == 0 || deltan < -0.001) {
+          fprintf(stderr,
+            "[CONTACT_FORCE] Step=%d, Particle=%d, deltan=%.6e (m), "
+            "Fn=%.6e (N), overlap_contact=(yes)\n",
+            update->ntimestep, atom->tag[iPart], deltan, sidata.Fn);
+        }
+      }
+      #endif
     }
     
     else
