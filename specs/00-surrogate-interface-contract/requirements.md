@@ -1,95 +1,107 @@
 # Spec 00 — Surrogate Interface Contract
 
-**Status:** Approved (QA-resolved 2026-11-05)
+**Status:** Approved — revised 2026-11-17 (contract corrected against the run_029 training code)
+
+> **Revision 2026-11-17.** The previous version of R00.1–R00.5 described a log10 overlap
+> model (`overlap = 10^out - eps`, `y_mean=0`, `y_scale=1`, z range [-0.5, 2.0]). That
+> contract belongs to an older, unrelated model (`Cases/overlap_model.pt`) and is **wrong for
+> run_029**. The contract below was verified against
+> `SS_models_training/interactions/ss_cube-wall/output/run_029/training_code.py`
+> (lines 200-223, 365-371), its `scalers.dat`, dataset_003, and by evaluating `model.pt`
+> directly (see "Verification evidence" at the end). It matches the training team's
+> `HANDOFF_TO_LIGGGHTS_C++_CORRECTIONS_20261105.md`.
 
 ## Context and Objective
 
 Define the fixed interface contract between trained ML surrogate models (from SS_models_training Phase 3B) and LIGGGHTS runtime contact calculation. The surrogate is the single source of truth for geometric contact quantities (overlap, contact point, normal); physics models (Hertz, Hooke, etc.) consume surrogate output unchanged.
 
+**Nondimensional principle.** The model is trained on a canonical cube of edge L=1. This
+size is a *unit* (nondimensional) case, not a physical size: every particle is mapped onto
+the unit cube by dividing lengths by its own edge length `L_actual`, the model is evaluated
+in unit space, and the predicted signed distance is scaled back by `L_actual`.
+
 ## Requirements
 
 ### R00.1: Input Tensor Format
 
-- **Shape**: `[z_unit, qw, qx, qy, qz]` (5 features, float32)
-- `z_unit`: particle center height normalized by characteristic length (z_phys / L_actual)
-  - Derived from particle position relative to wall and particle's own length scale
-  - Range: typically [-0.5, +2.0] for training data (from dataset_003, 100k samples)
-  - WHEN `z_unit` is outside training range, THE SYSTEM SHALL either warn (log message) or clamp to nearest trained value (TBD by implementation)
-- `qw, qx, qy, qz`: particle orientation quaternion (unit norm, canonicalized to qw >= 0)
+- **Model signature:** `forward(position_z: Tensor[B], quat: Tensor[B,4]) -> Tensor[B,1]`
+  (two arguments; the model normalizes `quat` internally and concatenates to 5 features).
+- **dtype:** float32 (the network weights are float32; float64 inputs are rejected by the model).
+- `z_unit` (= `position_z`): distance from the **cube centre** to the wall plane, divided by
+  `L_actual`. It is *not* a gap and *not* a penetration depth.
+  - Training range (dataset_003, 100 000 rows): `z_unit ∈ [0.400, 0.966]`.
+  - WHEN `z_unit > z_prefilter` (scalers.dat), THE SYSTEM SHALL skip the model: no contact is
+    possible (`z_prefilter ≥ r_circ + gap margin`).
+- `qw, qx, qy, qz`: particle orientation, body-to-world, `[qw, qx, qy, qz]` order.
   - IF input has qw < 0, THE SYSTEM SHALL flip all components (silently, no warning required)
-  - WHEN quaternion is not unit-normalized (||q|| != 1), THE SYSTEM SHALL either normalize or error with diagnostic (TBD by implementation)
+  - THE SYSTEM SHALL normalize the quaternion to unit norm before use.
 
-### R00.2: Output Tensor Format (Current: Overlap Only)
+### R00.2: Output Tensor Format (Current: Signed Distance Only)
 
-- **Shape**: Single scalar `log10(overlap_unit)` (normalized, float32)
-- Output range: typically [-5.0, +0.5] (from training data; log10 scale)
+- **Shape:** single scalar `r_s` = StandardScaler-scaled residual, float32.
+- Training target: `residual = sd + h_exact(q)` (training_code.py line 217), scaled with a
+  StandardScaler whose mean/scale are stored as `y_mean` / `y_scale` in scalers.dat.
+- There is **no log10 and no eps** in this model.
 - WHEN surrogate outputs NaN or Inf, THE SYSTEM SHALL error with diagnostic message and refuse to compute contact
-- WHEN surrogate output is far outside training range (> 3σ from training distribution), THE SYSTEM MAY warn but SHALL proceed (acceptable for extrapolation)
 
-### R00.3: Output Denormalization Formula
-
-**Single Scalar Case (Current, Option 4 and Option 1):**
+### R00.3: Output Denormalization Formula (option4)
 
 ```
-overlap_unit = 10^(output) - eps_small
+residual = r_s * y_scale + y_mean
+sd_unit  = residual - h_exact(q)
 
-where:
-  output = raw model output (log10 scale)
-  eps_small ≈ 1e-15 (prevents log domain underflow)
+h_exact(q) = max over the 8 vertices v of the unit cube (half edge 0.5) of  v · (R(q)^T d)
+  R(q) = body-to-world rotation matrix of q
+  d    = unit vector from the particle centre toward the wall (floor: d = -e_z)
+  (closed form for a cube: h = 0.5 (|u_x| + |u_y| + |u_z|),  u = R^T d)
+  range: 0.5 (face toward wall) ... sqrt(3)/2 (vertex toward wall)
 ```
 
-**Derivation and Rationale:**
-- Training data: overlaps in physical space, denormalized to log10 scale for regression
-- Model output: `log10(overlap_unit)` where `overlap_unit = overlap_phys / L_actual`
-- Inverse: `overlap_unit = 10^(output) - eps`
-- For y_mean=0.0, y_scale=1.0 (both models, run_029 and run_030): formula simplifies to `overlap_unit = 10^(output) - eps`
+Sign convention (same as LIGGGHTS `deltan`): `sd > 0` gap, `sd < 0` penetration.
+
+Source: training_code.py lines 368-371 (`residual_pred = scaler.inverse_transform(...)`,
+`sd_pred = residual_pred - h_exact_val`) and `compute_h_exact_batch` (lines 66-114).
 
 **Pseudocode (C++ Reference):**
 ```cpp
-double denormalize_overlap(double log10_output, double y_mean, double y_scale, double eps) {
-    // Reverse: exponentiate + remove eps
-    return std::pow(10.0, (log10_output * y_scale + y_mean)) - eps;
-}
-
-// For current models (y_mean=0, y_scale=1, eps≈1e-15):
-double overlap_unit = std::pow(10.0, log10_output) - 1e-15;
+double h       = h_exact_cube(q, dir_wall);
+double sd_unit = (raw * y_scale + y_mean) - h;
 ```
 
-### R00.4: Physical Overlap Computation
+### R00.4: Physical Signed Distance
 
 ```
-overlap_phys = overlap_unit * L_actual
-
-where:
-  overlap_unit = denormalized model output (from R00.3)
-  L_actual = particle's characteristic length (see R00.5)
-  overlap_phys = physical overlap in simulation units (always ≤ 0 for actual contact)
+sd_phys = sd_unit * L_actual          (> 0 gap, <= 0 contact; penetration depth = -sd_phys)
 ```
 
 ### R00.5: Nondimensionalization and Length Scale
 
 **Hard Constraint** (from CONSTITUTION.md, rule 9):
 
-- **Training:** Models trained at canonical size L=1 (for ss_cube: edge length = 1.0)
-- **Query Time:** Rescale by particle's own characteristic length L_actual
-  - `z_unit = z_phys / L_actual` (input preparation)
-  - `overlap_phys = overlap_unit * L_actual` (output rescaling)
+- **Training:** canonical unit cube, edge L=1 (nondimensional reference case).
+- **Query Time:** rescale by the particle's own characteristic length `L_actual`
+  - `z_unit  = centre_distance / L_actual` (input)
+  - `sd_phys = sd_unit * L_actual` (output)
+  - The quaternion and `h_exact` are scale-free.
 
 **Definition of L_actual (CRITICAL):**
-- **For ss_cube** (current target): L_actual = edge_length of cube (as declared in input file or per-particle attribute)
+- **For ss_cube:** `L_actual` = cube edge length = particle diameter set with `set ... diameter`
+  (Spec 03, R03.3). The particle radius is `L_actual/2` (inscribed sphere).
 - **For other shapes** (future): L_actual = canonical size as defined at training time (documented in model metadata)
 - **Constraint**: L_actual > 0. IF L_actual ≤ 0, THE SYSTEM SHALL error with diagnostic.
-- **Numerical Stability**: IF two particles have L values differing by >1000× (e.g., 0.001 vs 1.0), THE SYSTEM MAY warn but SHALL proceed (rescaling is exact; no tolerance needed).
 
-**Example (ss_cube):**
+**Example (ss_cube, face toward wall, h = 0.5):**
 ```
-Training: cube edge_length = 1.0, particle at z_phys = 0.1, overlap = 0.01
-Query: cube edge_length = 0.5, particle at z_phys = 0.05
-  => z_unit = 0.05 / 0.5 = 0.1   (same as training)
-  => model predicts same log10(overlap_unit) ≈ -2.0
-  => overlap_unit ≈ 0.01
-  => overlap_phys = 0.01 * 0.5 = 0.005 (physically correct for L_actual=0.5)
+L_actual = 0.01 m, centre 4.9 mm above the wall
+  => z_unit  = 0.0049 / 0.01 = 0.49
+  => model + h_exact give sd_unit = -0.01   (identical to an L=1 cube at z = 0.49 m)
+  => sd_phys = -0.01 * 0.01 = -1.0e-4 m     (0.1 mm penetration)
 ```
+
+### R00.5b: Validity Range
+
+- WHEN `sd_unit < sd_too_deep` (scalers.dat, -0.1 for run_029), THE SYSTEM SHALL warn
+  (penetration deeper than the training data; the model extrapolates) and SHALL proceed.
 
 ### R00.6: Quaternion Canonicalization
 
@@ -108,10 +120,10 @@ Query: cube edge_length = 0.5, particle at z_phys = 0.05
 format ss_model_record_v1
 run_id <string>
 model_type <string>              # MUST be "option4" or "option1"
-input_dtype float64
+input_dtype float64              # training-side value; the C++ side feeds float32 (R00.1)
 input_units canonical_L1
-y_mean <float>                   # denormalization intercept
-y_scale <float>                  # denormalization scale
+y_mean <float>                   # StandardScaler mean of residual (run_029: 0.74250850860714912)
+y_scale <float>                  # StandardScaler scale of residual (run_029: 0.13142255689813576)
 r_circ <float>                   # circumradius (for ss_cube: ~0.866)
 z_prefilter <float>              # prefilter threshold
 sd_too_deep <float>              # penetration threshold
@@ -125,9 +137,9 @@ n_ref <int>                      # number of reference test cases (0 if none)
 **Format Version:** `ss_model_record_v1` (versioning is explicit; future changes use v2, v3, etc.)
 
 **Model Type Detection:**
-- `model_type option4`: Physics-informed residual (sd = z - h_exact - network_residual)
-- `model_type option1`: Pure overlap network (sd = network(z, q))
-- WHEN model_type is unrecognized, THE SYSTEM SHALL error with diagnostic
+- `model_type option4`: Physics-informed residual (`sd = r_s*y_scale + y_mean - h_exact`, R00.3)
+- `model_type option1`: Pure overlap network (run_030) — contract **not implemented**
+- WHEN model_type is not `option4`, THE SYSTEM SHALL error with diagnostic (until option1 is specified and implemented)
 
 **Optional Fields (for future use):**
 ```
@@ -204,12 +216,12 @@ if(atom->surrogate_flag) {
 
 | Term | Definition |
 |------|-----------|
-| **overlap_unit** | Normalized overlap in model training units; overlap relative to L=1 |
-| **overlap_phys** | Physical overlap in simulation units; signed distance (≤0 for contact) |
-| **z_unit** | Normalized height: z_phys / L_actual |
-| **z_phys** | Physical height of particle above wall |
-| **L_actual** | Particle's characteristic length (edge length for cube) |
-| **log10(overlap)** | Log10-transformed overlap (model output domain) |
+| **sd_unit** | Signed distance cube–wall for the unit cube (>0 gap, <0 penetration) |
+| **sd_phys** | Physical signed distance = sd_unit · L_actual; used as LIGGGHTS `deltan` |
+| **z_unit** | Cube centre distance to the wall / L_actual (model input `position_z`) |
+| **h_exact(q)** | Exact support height of the unit cube toward the wall (depth of the lowest vertex below the centre) |
+| **r_s** | Raw network output: StandardScaler-scaled residual `sd + h_exact` |
+| **L_actual** | Particle's characteristic length (edge length for cube = particle diameter) |
 | **qw >= 0** | Quaternion canonicalization constraint (enforced at input time) |
 | **ss_cube-walls** | Interaction type: surrogate cube vs wall (current target) |
 | **option4** | Physics-informed residual model (run_029, 84.7% @ 1e-4) |
@@ -223,7 +235,7 @@ if(atom->surrogate_flag) {
 - RF-2: THE SYSTEM SHALL detect and error if model type (option4 vs option1) does not match requested shape.
 - RF-3: THE SYSTEM SHALL canonicalize quaternions (flip if qw < 0) before passing to surrogate.
 - RF-4: THE SYSTEM SHALL denormalize model output using exact formula from R00.3.
-- RF-5: THE SYSTEM SHALL rescale overlap by L_actual (input nondimensionalization, output rescaling).
+- RF-5: THE SYSTEM SHALL nondimensionalize the input by L_actual and rescale sd_unit by L_actual.
 - RF-6: WHEN surrogate output is NaN/Inf or outside expected range, THE SYSTEM SHALL error with diagnostic.
 - RF-7: THE SYSTEM SHALL ensure all geometric outputs (overlap, contact point, normal) come from single surrogate call.
 - RF-8: THE SYSTEM SHALL validate model identity (shape_key vs model type) before computing contact.
@@ -232,11 +244,11 @@ if(atom->surrogate_flag) {
 
 ## Numerical and Physical Requirements
 
-- NR-1: Input feature ranges (z_unit): [-0.5, +2.0] (from dataset_003 training data)
-- NR-2: Output log10(overlap): [-5.0, +0.5] (typical range from trained models)
-- NR-3: Denormalization must be numerically stable for all log10 values in [-5.0, +0.5] (no underflow/overflow)
+- NR-1: Input range (z_unit): [0.400, 0.966] (dataset_003); sd range [-0.09998, 0.46585]
+- NR-2: Accuracy zone sd_unit ∈ [-0.1, 0.1]; run_029 overlap MAE 6.1e-5 (84.7 % within 1e-4)
+- NR-3: Denormalization is affine (no underflow/overflow possible)
 - NR-4: Quaternion canonicalization must be exact (deterministic, reversible)
-- NR-5: Length rescaling must preserve physical correctness: `overlap_phys(L) = overlap_unit(1.0) * L` (exact, no tolerance)
+- NR-5: Length rescaling must be exact: `sd_phys(L, z) = L · sd_unit(z/L)` (no tolerance)
 - NR-6: Model identity validation must be fail-fast (error immediately if mismatch detected)
 
 ---
@@ -252,7 +264,7 @@ if(atom->surrogate_flag) {
 
 ## Edge Cases
 
-- EC-1: WHEN z_unit is far outside training range (|z_unit| > 10), THE SYSTEM MAY warn or clamp (acceptable for extrapolation)
+- EC-1: WHEN z_unit > z_prefilter the model SHALL NOT be called; WHEN sd_unit < sd_too_deep THE SYSTEM SHALL warn (R00.5b)
 - EC-2: WHEN particle size L_actual changes during simulation, rescaling must recompute for each step (correct by construction)
 - EC-3: WHEN two particles have very different sizes (1000× difference), rescaling still works (no numerical issue)
 - EC-4: WHEN model is not found at init time, error must include path searched and suggestions
@@ -271,7 +283,20 @@ if(atom->surrogate_flag) {
 ## Completion Criteria
 
 - CC-1: Scaler format is formally documented and matches actual models (run_029, run_030)
-- CC-2: Denormalization formula is explicit with clear pseudocode
-- CC-3: Input validation ranges are extracted from training data
+- CC-2: Denormalization formula is explicit with clear pseudocode and traced to the training code
+- CC-3: Input validation ranges are extracted from training data (dataset_003)
 - CC-4: Model identity validation is specified and testable
 - CC-5: All 4 critical issues (QA-identified) are resolved in this spec
+
+---
+
+## Verification evidence (2026-11-17)
+
+- `SS_models/ss-cube-walls/model.pt` is byte-identical to `run_029/model.pt`; weights float32.
+- Recomputed over dataset_003: `mean(sd+h) = 0.742508508`, `std(sd+h) = 0.131422556`
+  (= run_029 scalers.dat `y_mean`, `y_scale`); `max|sd - (z - h)| = 3.4e-7`.
+- `model.pt` with the R00.3 formula, identity quaternion (truth `sd = z - 0.5`):
+  z=0.49 → -0.010033, z=0.50 → -0.000069, z=0.51 → +0.009911, z=0.60 → +0.100013.
+  45° about x (h = 0.70711): z=0.7071 → -0.000030 (truth -0.000007).
+  3000 random dataset rows: MAE 6.0e-5.
+- The same numbers are reproduced by the C++ path (`h_exact_cube` + LibTorch, float32).

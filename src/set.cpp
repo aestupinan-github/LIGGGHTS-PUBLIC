@@ -830,8 +830,16 @@ void Set::set(int keyword)
     }
     else if (keyword == DIAMETER) {
        if (dvalue < 0.0) error->one(FLERR,"Invalid diameter in set command");
-        atom->radius[i] = 0.5 * dvalue * force->cg(atom->type[i]);
-        
+         atom->radius[i] = 0.5 * dvalue * force->cg(atom->type[i]);
+
+#ifdef SURROGATE_ACTIVE_FLAG
+         // Surrogate particles (Spec 03, R03.3): characteristic length L = diameter
+         // (cube edge = inscribed-sphere diameter). Kept consistent with radius = L/2,
+         // which fix_wall_gran uses to recover the centre distance from deltan.
+         if(atom->surrogate_flag)
+           atom->characteristic_length[i] = 2.0 * atom->radius[i];
+#endif
+         
         if(atom->rmass_flag && atom->density_flag && atom->density[i] > 0.)
         {
           if(atom->superquadric_flag) {

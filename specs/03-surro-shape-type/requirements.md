@@ -56,10 +56,16 @@ atom_style surrogate ss-cube
 
 **Storage:** `atom->characteristic_length[i]` (double, per-particle array)
 
-**Initialization:** Input file provides one of:
-- Option A: Per-particle via `create_atoms` command (future)
-- Option B: Global default via `pair_coeff` or config (Phase 3D)
-- Option C: User-specified in fix or command
+**Initialization (decided 2026-11-17):** `L_actual` = particle **diameter**.
+- `set atom|type|group ... diameter D` sets `radius = D/2` **and** `characteristic_length = D`
+  (for a cube: edge length = inscribed-sphere diameter).
+- Default for newly created particles (`create_atoms`, `read_data`): `radius = 0.5`, `L_actual = 1.0`
+  (consistent with the same rule).
+- Rationale: the unit cube (L=1) is the nondimensional training reference; each particle is
+  mapped onto it by its own `L_actual` (Constitution rule 9). `radius = L_actual/2` is also
+  what Spec 04 uses to recover the centre distance from the primitive-wall `deltan`.
+- `set ... diameter` recomputes `mass` as a sphere (`pi/6 D^3 rho`). For a cube of density
+  rho the input script must set `mass = rho·D^3` **after** `set ... diameter`.
 
 **Constraint:** L_actual > 0. IF L_actual ≤ 0, error: "characteristic_length must be > 0 for particle <id>"
 
@@ -189,6 +195,7 @@ if(atom->surrogate_flag) {
 - RF-3: THE SYSTEM SHALL enforce one shape type per simulation (error if > 1 declared)
 - RF-4: THE SYSTEM SHALL apply dual-guard pattern in all surrogate-specific code
 - RF-5: WHEN characteristic_length is invalid, THE SYSTEM SHALL error with diagnostic
+- RF-8: WHEN `set ... diameter D` is applied to a surrogate particle, THE SYSTEM SHALL set characteristic_length = D (and radius = D/2)
 - RF-6: THE SYSTEM SHALL use shape_key to look up loaded model at runtime
 - RF-7: THE SYSTEM SHALL match particle shape_key to model type during contact calculation
 
@@ -207,6 +214,7 @@ if(atom->surrogate_flag) {
 - EC-1: WHEN input file has no shape declaration, error: "atom_style surrogate requires shape name (e.g., `atom_style surrogate ss-cube`)"
 - EC-2: WHEN shape directory does not exist in SS_models/, error with full path and available shapes list
 - EC-3: WHEN two particles have different characteristic_length, both should work correctly (rescaling by individual lengths)
+- EC-4: Verified 2026-11-17: L=1 m and L=0.01 m cube drops give the same dimensionless response (Spec 04)
 
 ---
 

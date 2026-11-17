@@ -1,0 +1,78 @@
+# Test Case 01c: Surrogate Contact - Cube (L=1m) Falling on Plane - DIAGNOSTIC MODE
+# 
+# Purpose: Capture detailed diagnostic information during contact
+# Includes dump file output and extra thermo information
+# 
+# Model: run_029 (ss-cube-walls, 84.7% accuracy)
+
+# ===== Simulation Control =====
+units           si
+atom_style      surrogate ss-cube
+dimension       3
+boundary        f f f
+
+newton          off
+
+# ===== Geometry =====
+region          domain block -5.0 5.0 -5.0 5.0 0.0 20.0 units box
+create_box      1 domain
+
+# ===== Particle Creation =====
+create_atoms    1 single 0.0 0.0 10.0
+
+# ===== Material Properties =====
+set             atom * diameter 1.0
+# Cube mass = rho * L^3 (rho = 1000 kg/m^3). MUST come after 'set diameter':
+# 'set diameter' recomputes mass as a sphere (pi/6 d^3 rho) and overwrites it.
+set             atom * mass 1000.0
+
+# ===== Material Properties - Hertz Contact =====
+fix             materialproperties all property/global youngsModulus peratomtype 1.0e9
+fix             materialproperties2 all property/global poissonsRatio peratomtype 0.25
+fix             materialproperties3 all property/global coefficientRestitution peratomtypepair 1 0.9
+fix             materialproperties4 all property/global coefficientFriction peratomtypepair 1 0.2
+
+# ===== Velocity & Forces =====
+velocity        all set 0.0 0.0 0.0
+
+fix             integrate all nve/sphere
+fix             gravity all gravity 9.81 vector 0.0 0.0 -1.0
+
+# ===== Wall =====
+fix             wall all wall/gran model hertz tangential history primitive type 1 zplane 0.0
+
+# ===== Contact Model =====
+pair_style      gran model hertz tangential history
+pair_coeff      * *
+
+neigh_modify    check no delay 0
+
+# ===== Time Integration =====
+timestep        0.0001
+
+# Compute energy
+compute         thermo_kinetic all ke
+compute         thermo_potential all pe
+
+# Dump every step during contact phase for detailed trajectory
+thermo          100
+thermo_style    custom step atoms c_thermo_kinetic c_thermo_potential
+
+# Dump particle positions and velocities
+# Focus on contact phase: steps 14000-15000
+shell           mkdir post
+dump            contact_phase all custom 10 post/dump_contact.lammpstrj &
+                id x y z vx vy vz
+
+# ===== VTK Output (for post-processing, e.g. ParaView) =====
+# Written to ./post/ relative to the working directory
+dump            dmpvtk all custom/vtk 10 post/test01c_*.vtk id type x y z vx vy vz fx fy fz omegax omegay omegaz radius mass quat1 quat2 quat3 quat4
+
+# ===== Run =====
+# Run only to capture contact phase in detail
+run             15000
+
+# ===== Output =====
+print "===== TEST 01c (DIAGNOSTIC) COMPLETE ====="
+print "Cube (L=1m) contact phase captured in dump_contact.lammpstrj"
+print "Expected: Trajectory shows particle motion during and after contact"

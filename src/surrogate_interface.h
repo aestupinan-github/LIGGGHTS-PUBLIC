@@ -17,96 +17,91 @@ namespace SurrogateInterface {
    Constants
 ===================================================================== */
 
-/// Epsilon for preventing log domain underflow in denormalization
-/// When overlap_unit = 10^(output) - eps, this prevents underflow
-static constexpr double EPS_DENORM = 1e-15;
-
-/// Training range for z_unit (normalized height above wall)
-/// Outside this range is extrapolation (permissible but may warn)
-static constexpr double Z_UNIT_MIN_TRAIN = -0.5;
-static constexpr double Z_UNIT_MAX_TRAIN = 2.0;
-
-/// Extrapolation warning threshold (multiples of training range)
-static constexpr double Z_UNIT_EXTRAP_THRESHOLD = 10.0;
-
-/// Output range for log10(overlap_unit) (approximately)
-/// Outside this range is suspicious (may warn)
-static constexpr double LOG10_OVERLAP_MIN_TRAIN = -5.0;
-static constexpr double LOG10_OVERLAP_MAX_TRAIN = 0.5;
+/// Half edge length of the canonical (L=1) cube used in training.
+/// Matches compute_h_exact_batch() in the run_029 training code.
+static constexpr double CUBE_HALF_EDGE_UNIT = 0.5;
 
 /* =====================================================================
-   Denormalization Functions (Spec 00, R00.3-R00.4)
+   Exact support height (run_029 / option4 physics part)
 ===================================================================== */
 
 /**
- * @brief Denormalize model output from log10 scale to physical overlap
- * 
- * Formula: overlap_unit = 10^(log10_output * y_scale + y_mean) - eps
- * For current models (y_mean=0, y_scale=1): overlap_unit = 10^(log10_output) - eps
- * 
- * Spec 00, R00.3-R00.4
- * 
- * @param log10_output Raw model output (log10 scale, float)
- * @param y_mean       Mean from scalers (normalization parameter)
- * @param y_scale      Scale from scalers (normalization parameter)
- * @param eps          Epsilon to prevent underflow (typically 1e-15)
- * 
- * @return overlap_unit Denormalized overlap (nondimensional)
- * 
- * @note For current models (run_029, run_030): y_mean=0, y_scale=1
- *       so formula simplifies to: -(10^(log10_output)) - eps
- *       (Negative sign because model outputs log10 of absolute overlap,
- *        and we need signed overlap: negative = penetration)
+ * @brief Exact support height h(q) of the canonical cube toward a wall
+ *
+ * h = max over the 8 cube vertices v of  (R(q) v) . d
+ * where R(q) is the body-to-world rotation matrix and d is the unit vector
+ * pointing from the particle centre toward the wall.
+ *
+ * For a floor (d = -e_z) this is identical to the training formula
+ * h(q) = max_v v . (-R^T e_z)  (run_029 training_code.py, compute_h_exact_batch),
+ * i.e. the depth of the lowest vertex below the centre, in units of L.
+ * Range: 0.5 (face toward wall) ... sqrt(3)/2 (vertex toward wall).
+ *
+ * Quaternion convention [qw,qx,qy,qz], body-to-world, same as
+ * MathExtraLiggghtsNonspherical::quat_to_mat and the training code.
+ *
+ * @param quat     Unit quaternion [qw, qx, qy, qz]
+ * @param dir_wall Unit vector from particle centre toward the wall (world frame)
+ *
+ * @return h_unit  Support height for the unit cube (dimensionless)
  */
-inline double denormalize_overlap(double log10_output, double y_mean, double y_scale, double eps)
+inline double h_exact_cube(const double quat[4], const double dir_wall[3])
 {
-  // Reverse normalization: exponentiate + remove eps + NEGATE for contact semantics
-  // Model outputs log10(|overlap|); we need signed overlap where negative = contact
-  double overlap_unit = -std::pow(10.0, (log10_output * y_scale + y_mean)) - eps;
-  return overlap_unit;
+  const double w = quat[0], x = quat[1], y = quat[2], z = quat[3];
+  const double R[3][3] = {
+    {1 - 2*(y*y + z*z), 2*(x*y - z*w),     2*(x*z + y*w)},
+    {2*(x*y + z*w),     1 - 2*(x*x + z*z), 2*(y*z - x*w)},
+    {2*(x*z - y*w),     2*(y*z + x*w),     1 - 2*(x*x + y*y)}
+  };
+  // body-frame direction toward wall: u = R^T d
+  double u[3];
+  for (int k = 0; k < 3; k++)
+    u[k] = R[0][k]*dir_wall[0] + R[1][k]*dir_wall[1] + R[2][k]*dir_wall[2];
+  // max over cube vertices (+-a,+-a,+-a) of v.u = a*(|u0|+|u1|+|u2|)
+  return CUBE_HALF_EDGE_UNIT * (std::fabs(u[0]) + std::fabs(u[1]) + std::fabs(u[2]));
+}
+
+/* =====================================================================
+   Denormalization (Spec 00, run_029 option4 residual model)
+===================================================================== */
+
+/**
+ * @brief Convert raw network output into the signed distance (unit cube)
+ *
+ * run_029 is trained on the StandardScaler-scaled residual  r = sd + h(q).
+ * Inverse (training_code.py lines 368-371):
+ *   residual = out * y_scale + y_mean
+ *   sd_unit  = residual - h(q)
+ *
+ * Sign convention (same as LIGGGHTS deltan): sd > 0 gap, sd < 0 penetration.
+ * There is NO log10 / eps in this model.
+ *
+ * @param raw_output Raw network output (scaled residual)
+ * @param y_mean     Scaler mean from scalers.dat
+ * @param y_scale    Scaler scale from scalers.dat
+ * @param h_unit     Exact support height h(q), see h_exact_cube()
+ *
+ * @return sd_unit   Signed distance for the unit cube (dimensionless)
+ */
+inline double denormalize_signed_distance(double raw_output, double y_mean,
+                                          double y_scale, double h_unit)
+{
+  return (raw_output * y_scale + y_mean) - h_unit;
 }
 
 /**
- * @brief Denormalize overlap from nondimensional to physical units
- * 
- * Formula: overlap_phys = overlap_unit * L_actual
- * 
- * Spec 00, R00.4-R00.5
- * 
- * @param overlap_unit Denormalized overlap (nondimensional)
- * @param L_actual     Particle characteristic length (e.g., cube edge)
- * 
- * @return overlap_phys Physical overlap in simulation units
- * 
- * @note Always check L_actual > 0 before calling
+ * @brief Rescale a unit-cube length to physical units
+ *
+ * Formula: value_phys = value_unit * L_actual   (Constitution rule 9)
+ *
+ * @param value_unit Dimensionless length (canonical L=1)
+ * @param L_actual   Particle characteristic length (cube edge)
+ *
+ * @return Physical length
  */
-inline double rescale_overlap_physical(double overlap_unit, double L_actual)
+inline double rescale_to_physical(double value_unit, double L_actual)
 {
-  return overlap_unit * L_actual;
-}
-
-/**
- * @brief Combined denormalization: log10 output → physical overlap
- * 
- * Convenience function combining denormalization + physical rescaling
- * 
- * @param log10_output Raw model output
- * @param y_mean       Normalization mean
- * @param y_scale      Normalization scale
- * @param L_actual     Characteristic length
- * @param eps          Underflow epsilon
- * 
- * @return overlap_phys Physical overlap
- */
-inline double denormalize_overlap_full(
-  double log10_output, 
-  double y_mean, 
-  double y_scale, 
-  double L_actual, 
-  double eps = EPS_DENORM)
-{
-  double overlap_unit = denormalize_overlap(log10_output, y_mean, y_scale, eps);
-  return rescale_overlap_physical(overlap_unit, L_actual);
+  return value_unit * L_actual;
 }
 
 /* =====================================================================
@@ -188,39 +183,8 @@ inline double normalize_quaternion(double quat[4])
 }
 
 /* =====================================================================
-   Input Validation (Spec 00, R04.3)
+   Input Validation
 ===================================================================== */
-
-/**
- * @brief Check if z_unit is within extrapolation threshold
- * 
- * Training range: [-0.5, +2.0]
- * Extrapolation threshold: ±10.0
- * 
- * @param z_unit Normalized height above wall
- * 
- * @return true if within threshold; false if extrapolation is severe
- * 
- * @note If false, system should warn but proceed (extrapolation is permissible)
- */
-inline bool is_z_unit_in_extrapolation_threshold(double z_unit)
-{
-  return (z_unit >= -Z_UNIT_EXTRAP_THRESHOLD && z_unit <= Z_UNIT_EXTRAP_THRESHOLD);
-}
-
-/**
- * @brief Check if z_unit is within training range
- * 
- * Training range: [-0.5, +2.0]
- * 
- * @param z_unit Normalized height above wall
- * 
- * @return true if within training range; false if extrapolating
- */
-inline bool is_z_unit_in_training_range(double z_unit)
-{
-  return (z_unit >= Z_UNIT_MIN_TRAIN && z_unit <= Z_UNIT_MAX_TRAIN);
-}
 
 /**
  * @brief Check if value is finite and in physically valid range
@@ -247,21 +211,6 @@ inline bool is_finite(double value)
 inline bool is_characteristic_length_valid(double L_actual)
 {
   return (L_actual > 0.0 && std::isfinite(L_actual));
-}
-
-/**
- * @brief Check if model output is within expected training range
- * 
- * Training output range: approximately [-5.0, +0.5] (log10 scale)
- * Outside this range is permissible but suspicious (may warn)
- * 
- * @param log10_output Model output (log10 scale)
- * 
- * @return true if within training range; false if suspicious
- */
-inline bool is_model_output_in_training_range(double log10_output)
-{
-  return (log10_output >= LOG10_OVERLAP_MIN_TRAIN && log10_output <= LOG10_OVERLAP_MAX_TRAIN);
 }
 
 /* =====================================================================

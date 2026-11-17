@@ -1,6 +1,6 @@
 # Spec 04 — Geometric Contact Models (Surrogate-Based)
 
-**Status:** Approved (QA-resolved 2026-11-05)
+**Status:** Approved — revised 2026-11-17 (input/output contract corrected to run_029; see Spec 00 revision note)
 
 ## Context and Objective
 
@@ -35,7 +35,7 @@ if(atom->surrogate_flag) {
     auto surrogate_output = model->forward(input_tensor);
     
     // Extract ALL geometric outputs from single call
-    overlap = denormalize(surrogate_output.overlap_log10);
+    overlap = denormalize(surrogate_output);   // Spec 00 R00.3
     contact_point = surrogate_output.contact_point;  // future
     normal = surrogate_output.normal;                 // future
     
@@ -49,23 +49,25 @@ if(atom->surrogate_flag) {
 
 **Target:** Surrogate cube vs plane (primitive wall)
 
-**Input to Surrogate:**
-- `z_unit = (z_particle - z_wall) / L_actual` (height above wall, normalized)
-- `quat = [qw, qx, qy, qz]` (particle orientation, canonicalized)
+**Input to Surrogate (Spec 00 R00.1):**
+- `z_unit = centre_distance / L_actual`, where `centre_distance` = distance from the cube
+  centre to the wall plane. For a primitive wall `resolveContact` returns
+  `deltan = centre_distance - radius`, hence `centre_distance = deltan + radius` (radius = L/2).
+- `quat = [qw, qx, qy, qz]` (particle orientation, canonicalized, unit norm), float32
 
 **Output from Surrogate:**
-- `log10(overlap_unit)` (current; only output)
-- Contact point (future, Phase 3D)
-- Contact normal (future, Phase 3D)
+- Scaled residual `r_s` (current; only output) → `sd_unit = r_s*y_scale + y_mean - h_exact(q, d)`
+  with `d` = unit vector centre → wall (from `delta`). Contact point / normal: future (Phase 3D)
 
 **Contact Calculation Flow:**
 
-1. **Prepare Input:** Canonicalize quaternion, normalize height
-2. **Query Surrogate:** Call model.forward([z_unit, quat])
-3. **Denormalize:** overlap_unit = 10^(output) - eps_small (Spec 00)
-4. **Rescale:** overlap_phys = overlap_unit * L_actual
-5. **Validate:** Check for NaN/Inf, physically invalid values
-6. **Physics Integration:** Pass overlap to force model
+1. **Prefilter:** IF `z_unit > z_prefilter` → no contact; hard-zero history; skip
+2. **Prepare Input:** canonicalize + normalize quaternion; `z_unit`
+3. **Query Surrogate:** `raw = model.forward(position_z, quat)`
+4. **Denormalize:** `sd_unit = raw*y_scale + y_mean - h_exact(q, d)` (Spec 00 R00.3)
+5. **Rescale:** `sd_phys = sd_unit * L_actual`; `deltan = sd_phys`
+6. **Validate:** NaN/Inf → error; `sd_unit < sd_too_deep` → warning (extrapolation)
+7. **Physics Integration:** IF `deltan <= 0`, pass `-deltan` (penetration) to the force model
 
 ### R04.3: Input Validation (CRITICAL - Prevents Silent Failures)
 
@@ -73,7 +75,7 @@ if(atom->surrogate_flag) {
 - IF z_unit is NaN or Inf, error: "Invalid z_unit (NaN/Inf) at particle <id>"
 - IF quaternion contains NaN or Inf, error: "Invalid quaternion at particle <id>"
 - IF characteristic_length <= 0, error: "Invalid characteristic_length at particle <id>"
-- IF z_unit is outside training range (< -10 or > +10), warn (optional) but proceed (extrapolation)
+- IF z_unit > z_prefilter, the model is not called (no contact possible)
 
 **After Surrogate Query:**
 - IF model output is NaN or Inf, error: "Surrogate inference produced NaN/Inf at particle <id> with z_unit=<>, quat=<>"
@@ -117,14 +119,14 @@ if (particle_shape != loaded_shape_inferred_from_model) {
 
 **Hard-Zeroing (Replicate Superquadric Pattern):**
 
-When contact breaks (deltan > 0):
+When contact breaks (deltan > 0) or the particle is prefiltered out:
 
 ```cpp
 #ifdef SURROGATE_ACTIVE_FLAG
 if(atom->surrogate_flag && deltan > 0.0) {
     if(c_history)
         vectorZeroizeN(c_history[iPart], dnum_);
-    break;  // Exit contact loop for this particle
+    continue;  // next particle (NOT break: break would skip all remaining particles)
 }
 #endif
 ```
@@ -190,8 +192,9 @@ if(atom->surrogate_flag && deltan > 0.0) {
 
 | Term | Definition |
 |------|-----------|
-| **overlap_unit** | Normalized overlap (model output domain, relative to L=1) |
-| **overlap_phys** | Physical overlap in simulation units (signed distance) |
+| **sd_unit** | Signed distance for the unit cube (Spec 00) |
+| **sd_phys** | Physical signed distance = sd_unit · L_actual (assigned to deltan) |
+| **z_unit** | Cube centre distance to the wall / L_actual |
 | **deltan** | LIGGGHTS variable: normal displacement (negative for penetration) |
 | **c_history** | Contact history array (friction, damping state) |
 | **shape_key** | Integer index for shape identity (0 for ss-cube, 1 for ss-pyramid, etc.) |
@@ -220,9 +223,10 @@ if(atom->surrogate_flag && deltan > 0.0) {
 
 ## Edge Cases
 
-- EC-1: WHEN surrogate output is outside training range (far extrapolation), proceed but log warning
+- EC-1: WHEN sd_unit < sd_too_deep (penetration deeper than training data), proceed but warn
 - EC-2: WHEN contact between particles (ss-ss, not available yet), handle gracefully (error with suggestion)
-- EC-3: WHEN particle approaches from far away (z_unit >> training range), surrogate still evaluates (extrapolation acceptable)
+- EC-3: WHEN z_unit > z_prefilter, the surrogate is not evaluated
+- EC-4: A tilted cube can touch the wall with its centre up to r_circ·L = 0.866 L away. Primitive-wall neighbour detection is sphere-based (radius L/2 + skin); a corner contact may be detected late. [NEEDS CLARIFICATION — open, does not affect face-down tests]
 
 ---
 
@@ -241,23 +245,22 @@ if(atom->surrogate_flag && deltan > 0.0) {
 
 ### Wall Normal Direction (Generalized for Any Wall Orientation)
 
-**Key Finding:** The `delta` vector returned by `primitiveWall_->resolveContact(double *x, double r, double *delta)` already encodes the contact normal direction (pointing from wall toward particle).
+`primitiveWall_->resolveContact(x, r, delta)` returns `deltan = |centre - wall| - r` and the
+vector `delta` from the centre toward the wall. The surrogate uses:
+- `centre_distance = deltan + r` → `z_unit = centre_distance / L_actual`
+- `d = delta / |delta|` → direction for `h_exact(q, d)` (generalizes the training floor `d = -e_z`)
 
-**Implementation:** Instead of hardcoding z-axis assumption:
-- Compute `s_unit = |deltan| / L_actual` where `deltan = ||delta||`
-- This automatically handles walls in any orientation (xy-plane, yz-plane, xz-plane, cylinders, etc.)
-- Replaces the original training assumption of z-axis walls
-
-**Rationale:** The `delta` vector is already computed by `primitiveWall_` for sphere-based contact detection. Reusing it for surrogate input ensures consistency and generalization.
+> Corrected 2026-11-17: the former `s_unit = |deltan| / L_actual` definition was wrong — the
+> model input is the centre distance, not the gap.
 
 ### Contact Cutoff Strategy (Follow Superquadric Pattern)
 
 1. Call `primitiveWall_->resolveContact()` for fast sphere-based distance computation
 2. If `deltan <= cutoff` (close enough), query surrogate model
 3. Use surrogate overlap output directly (no analytical refinement per Spec 04 R04.1)
-4. Skip contact if `s_unit > 3 * L_actual` (too far; no physical contact possible)
+4. Skip the model if `z_unit > z_prefilter` (scalers.dat; 1.0 for run_029)
 
-**Note on Elongated Shapes:** The `3 * L_actual` threshold assumes cubic-like shapes. For elongated shapes (future Phase 3D+), this may be too conservative or too permissive. Recommendation: make threshold shape-aware when multi-shape support is added.
+**Note:** `z_prefilter` is shape-specific and comes with the model.
 
 ### Shape Mismatch Detection (Phase 3C Assumption)
 
@@ -267,13 +270,10 @@ if(atom->surrogate_flag && deltan > 0.0) {
 
 **Phase 3D+ Roadmap:** Add explicit `shape_target` field to scalers.dat (ss_model_record_v2 or extended v1) to enable robust multi-shape validation.
 
-### Input Normalization (`s_unit` Definition)
+### Input Normalization (`z_unit` Definition)
 
-**Original (z-axis only):** `z_unit = (z_particle - z_wall) / L_actual`
-
-**Generalized (any wall):** `s_unit = |deltan| / L_actual` where `deltan` comes from `primitiveWall_->resolveContact()`
-
-**Mapping to Model Input Tensor:** `[s_unit, qw, qx, qy, qz]` (same 5-feature format as training)
+`z_unit = (deltan + radius) / L_actual` = cube centre distance to the wall / L_actual
+(Spec 00 R00.1). Mapping to the model: `forward(position_z=[z_unit], quat=[[qw,qx,qy,qz]])`.
 
 ### Validation Strategy (Phase 3C - Session 4 Decision)
 
@@ -286,7 +286,7 @@ Phase 3C validation focuses on detecting major bugs without extensive analytical
 - Free fall from z=10 m under gravity
 - Wall contact at z=0 (plane, zplane primitive)
 - Duration: 2 seconds (enough for contact, bounce, settle)
-- Metrics: Contact force, energy conservation, s_unit range
+- Metrics: Contact force, energy conservation, z_unit / sd_unit range
 
 **Validation Checks:**
 
@@ -307,25 +307,23 @@ Phase 3C validation focuses on detecting major bugs without extensive analytical
    - Output: Step-by-step energy log; warning if loss exceeds threshold
 
 4. **Numerical Safety (Covers R04.3)**
-   - Assertion: No NaN/Inf in overlap, force, s_unit, quaternion
+   - Assertion: No NaN/Inf in sd, force, z_unit, quaternion
    - Rationale: Catches denormalization formula errors, model failures
    - Output: Hard error if NaN/Inf detected
 
-5. **Training Range Check (Covers R04.4, EC-1)**
-   - Assertion: During contact, s_unit ∈ [-0.5, 2.0] (model training bounds)
-   - Rationale: Warns when extrapolating; helps calibrate skip threshold
-   - Output: Warning if s_unit outside range (does not skip contact, but flags it)
+5. **Training Range Check (Covers R04.4, EC-1)** — implemented unconditionally (not behind the pragma)
+   - z_unit > z_prefilter → model skipped; sd_unit < sd_too_deep (-0.1) → warning
 
 **Success Criteria:**
 - All contact forces > 0 during overlap
 - Total energy loss < 5% over full simulation
 - History properly zeroed on gap
 - No NaN/Inf values
-- s_unit stays within training range (or logged as extrapolation)
+- sd_unit stays above sd_too_deep (or logged as extrapolation)
 
 **Output Diagnostics (one line per contact timestep):**
 ```
-Step | PID | Overlap(m) | Force(N) | s_unit | KE(J)  | PE(J)  | ΔE(J)  | Checks
+Step | PID | Overlap(m) | Force(N) | z_unit | KE(J)  | PE(J)  | ΔE(J)  | Checks
  100 | 1   | 0.0150    | 2534    | 0.0150 | 45.23  | 120.34 | -0.12  | OK✓
  200 | 1   | 0.0089    | 1342    | 0.0089 | 32.15  | 105.67 | 0.08   | OK✓
  300 | 1   | 0.0000    | 0       | 0.0000 | 18.92  | 95.23  | -0.05  | GAP (history cleared)
@@ -367,3 +365,22 @@ Step | PID | Overlap(m) | Force(N) | s_unit | KE(J)  | PE(J)  | ΔE(J)  | Checks
 6. Spec 05 will extend to multi-scale, multi-shape, analytical validation
 
 ---
+
+## Validation Results (2026-11-17, after contract correction)
+
+Face-down cube dropped on a `zplane` wall; Hertz + tangential history, E = 1e9 Pa, ν = 0.25,
+e = 0.9, μ = 0.2; mass set to ρL³ (ρ = 1000 kg/m³). Data from the VTK dumps (`post/`).
+
+| Case | L | dt | Particle kept | e (measured) | max penetration / L | contact time |
+|---|---|---|---|---|---|---|
+| test_01c | 1 m | 1e-4 | yes | 0.899 | 0.0444 | ≈ 9.1 ms |
+| test_02 (dense dump) | 0.01 m | 1e-5 | yes | 0.900 | 0.0070 | ≈ 0.160 ms |
+
+Undamped Hertz sphere–plane estimate (R = L/2, Y* = E/(2(1-ν²))): penetration/L = 0.0464 and
+0.0074, contact time 10.0 ms and 0.159 ms. Measured penetrations are slightly below the
+undamped values, as expected with damping. No `sd_too_deep` warnings. test_01 and test_01b
+(L = 1 m) also keep the particle and rebound.
+
+Numerical verification only. The force law is the native Hertz model acting on the
+surrogate overlap; for a face-down cube the surrogate overlap equals the exact geometric
+overlap to ~1e-4 L. No physical/experimental validation has been performed.

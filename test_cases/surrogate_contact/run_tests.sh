@@ -13,6 +13,8 @@ set -e
 LIGGGHTS_BIN="/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/build/liggghts"
 TEST_DIR="/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/test_cases/surrogate_contact"
 MODEL_DIR="/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/SS_models"
+# Tests run from output/test_N/, so the model path resolver needs this
+export SS_MODELS_DIR="$MODEL_DIR"
 
 # Color codes
 RED='\033[0;31m'

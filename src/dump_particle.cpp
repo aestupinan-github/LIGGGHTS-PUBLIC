@@ -512,25 +512,25 @@ int DumpParticle::parse_parameters(const int narg, const char *const *const arg,
                 vtype[BLOCKINESS2] = DOUBLE;
                 name[BLOCKINESS2] = arg[iarg];
             } else if (strcmp(arg[iarg],"quat1") == 0) {
-                if (!atom->superquadric_flag)
+                if (!atom->superquadric_flag && !atom->surrogate_flag)
                     error->all(FLERR,"Dumping an atom quantity that isn't allocated");
                 pack_choice[QUAT1] = &DumpParticle::pack_quat1;
                 vtype[QUAT1] = DOUBLE;
                 name[QUAT1] = arg[iarg];
             } else if (strcmp(arg[iarg],"quat2") == 0) {
-                if (!atom->superquadric_flag)
+                if (!atom->superquadric_flag && !atom->surrogate_flag)
                     error->all(FLERR,"Dumping an atom quantity that isn't allocated");
                 pack_choice[QUAT2] = &DumpParticle::pack_quat2;
                 vtype[QUAT2] = DOUBLE;
                 name[QUAT2] = arg[iarg];
             } else if (strcmp(arg[iarg],"quat3") == 0) {
-                if (!atom->superquadric_flag)
+                if (!atom->superquadric_flag && !atom->surrogate_flag)
                     error->all(FLERR,"Dumping an atom quantity that isn't allocated");
                 pack_choice[QUAT3] = &DumpParticle::pack_quat3;
                 vtype[QUAT3] = DOUBLE;
                 name[QUAT3] = arg[iarg];
             } else if (strcmp(arg[iarg],"quat4") == 0) {
-                if (!atom->superquadric_flag)
+                if (!atom->superquadric_flag && !atom->surrogate_flag)
                     error->all(FLERR,"Dumping an atom quantity that isn't allocated");
                 pack_choice[QUAT4] = &DumpParticle::pack_quat4;
                 vtype[QUAT4] = DOUBLE;

@@ -4,12 +4,12 @@
 
 ```
 Training time:
-  STL / generatrice points → training data → surrogate model (overlap_model.pt)
+  STL / generatrice points → training data → surrogate model (SS_models/<shape>-walls/model.pt)
                                                     ↓
 Runtime:                                        scalers.dat
   atom->x, atom->quaternion, atom->shape_key
                     ↓
-            surrogate model (overlap_model.pt)
+            surrogate model (SS_models/<shape>-walls/model.pt)
                     ↓
             overlap, contact point, normal
                     ↓
@@ -24,11 +24,12 @@ In `fix_wall_gran.cpp`, add surrogate branch:
 ```cpp
 #ifdef SURROGATE_ACTIVE_FLAG
 if(atom->surrogate_flag) {
-    // 1. Compute input features: [z_unit, qw, qx, qy, qz]
-    // 2. Call surrogate model
-    // 3. Get overlap, contact point, normal from surrogate
-    // 4. Use surrogate output for force calculation
-    // 5. Hard-zero contact history if deltan > 0
+    // 1. z_unit = (deltan + radius) / L ;  skip if z_unit > z_prefilter
+    // 2. d = delta/|delta| ;  raw = model(z_unit, q)  (float32)
+    // 3. sd_unit = raw*y_scale + y_mean - h_exact(q, d) ;  deltan = sd_unit * L
+    // 4. warn if sd_unit < sd_too_deep
+    // 5. Hard-zero contact history and `continue` if deltan > 0
+    // 6. Otherwise native physics model with penetration -deltan
 }
 #endif
 ```
@@ -49,7 +50,7 @@ Replicate superquadric pattern:
 if(atom->surrogate_flag && deltan > 0.0) {
     if(c_history)
         vectorZeroizeN(c_history[iPart], dnum_);
-    break;
+    continue;   // next particle; `break` would skip the rest of the neighbour list
 }
 ```
 

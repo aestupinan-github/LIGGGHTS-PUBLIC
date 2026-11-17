@@ -4,62 +4,35 @@
 
 ## Tensor Layout
 
-### Input (5 features)
+> Revised 2026-11-17: the previous log10/eps design was wrong for run_029 (see requirements.md, revision note).
+
+### Input (model signature `forward(position_z[B], quat[B,4])`, float32)
 ```
-[z_unit, qw, qx, qy, qz]
+position_z = z_unit = centre_distance / L_actual
+quat       = [qw, qx, qy, qz]   (canonical qw >= 0, unit norm)
 ```
-- `z_unit = z_phys / L_actual` (nondimensionalized height)
-  - Computed at input preparation time
-  - Range: [-0.5, +2.0] (from training data dataset_003)
-- Quaternion canonicalized: if qw < 0, flip all components
-  - Applied deterministically before model query
-  - Ensures model sees consistent orientation domain
+- Training range: z_unit ∈ [0.400, 0.966]
+- The model normalizes the quaternion again internally (`quat / (||quat|| + 1e-12)`).
 
 ### Output (current: 1 scalar)
 ```
-log10(overlap_unit)
+r_s = StandardScaler-scaled residual,  residual = sd + h_exact(q)
 ```
 
-**Denormalization (CRITICAL - Fixed Formula):**
-
+**Denormalization (run_029, option4):**
 ```
-overlap_unit = 10^(log10_overlap) - eps_small
-
-where:
-  log10_overlap = raw model output (in log10 domain)
-  eps_small ≈ 1e-15 (prevents underflow in log domain)
+sd_unit = (r_s * y_scale + y_mean) - h_exact(q)
+sd_phys = sd_unit * L_actual
 ```
-
-**For current models (run_029, run_030) with y_mean=0.0, y_scale=1.0:**
-
-The formula simplifies to:
-```cpp
-double overlap_unit = std::pow(10.0, log10_overlap) - 1e-15;
-```
-
-**Physical overlap:**
-```
-overlap_phys = overlap_unit * L_actual
-```
-where L_actual is the particle's characteristic length (edge length for ss_cube).
-
-**Operator Precedence (Explicit):**
-- `10^(log10_overlap)` is evaluated first (power function)
-- Then subtract `eps_small` from the result
-- Then multiply by `L_actual`
-
-**Derivation:**
-- Training: overlaps in physical space, transformed to log10 scale for neural network regression
-- Model learns: f(z, q) ≈ log10(overlap_unit)
-- Inverse: To recover overlap_unit, exponentiate: 10^f(z, q) ≈ overlap_unit
-- Eps correction: Small offset to handle numerical edge cases (log10 underflow)
+with `h_exact(q) = 0.5 (|u_x|+|u_y|+|u_z|)`, `u = R(q)^T d`, `d` = unit vector centre → wall.
+For a floor `d = -e_z` this equals the training formula `max_v v·(-R^T e_z)`.
 
 **Reference Implementation (from SS_models_training Phase 3B):**
-See `/home/su_estupinan@private.list.lu/Programs/SS_models_training/interactions/ss_cube-wall/output/run_029/training_code.py` for exact training-time inverse transform.
+`run_029/training_code.py`, `compute_h_exact_batch` (lines 66-114) and lines 365-371.
 
 ### Output (future: extendable to 7 scalars)
 ```
-[log10(overlap_unit), contact_point_x, contact_point_y, contact_point_z, normal_x, normal_y, normal_z]
+[sd, contact_point_x, contact_point_y, contact_point_z, normal_x, normal_y, normal_z]
 ```
 Required for ss-ss and non-primitive wall contact. Format frozen in Spec 00 once contact point generation is complete (deferred to Phase 3D).
 
@@ -78,8 +51,8 @@ run_id run_029
 model_type option4
 input_dtype float64
 input_units canonical_L1
-y_mean 0.0
-y_scale 1.0
+y_mean 0.74250850860714912
+y_scale 0.13142255689813576
 r_circ 0.866025403784
 z_prefilter 1.0
 sd_too_deep -0.1
@@ -94,12 +67,12 @@ n_ref 0
 - `format`: Version identifier (enables future format changes)
 - `run_id`: Unique identifier for training run (for reproducibility)
 - `model_type`: `option4` (physics-informed) or `option1` (pure ANN)
-- `input_dtype`: Input feature precision (float64 in training; float32 in C++)
+- `input_dtype`: training-side value; the network weights are float32, so the C++ side feeds float32
 - `input_units`: `canonical_L1` means L=1 training scale
-- `y_mean`, `y_scale`: Denormalization parameters (currently 0.0, 1.0 for both models)
+- `y_mean`, `y_scale`: StandardScaler mean/scale of the residual target (NOT identity)
 - `r_circ`: Circumradius constant for shape (0.866 for unit cube)
-- `z_prefilter`: Prefilter threshold for near-contact detection
-- `sd_too_deep`: Penetration depth threshold beyond which contact is invalid
+- `z_prefilter`: z_unit above which no contact is possible; the model is not called
+- `sd_too_deep`: sd_unit below which the query is outside the training data (warning)
 - `h_exact_method`: How h_exact(q) is computed (analytical_rotation_matrix for Option 4)
 - `network_input_dim`: Number of input features (always 5: z_unit, qw, qx, qy, qz)
 - `ref_eval`: Reference evaluation mode (CPU vs GPU; not used in LIGGGHTS)
@@ -118,19 +91,19 @@ n_ref 0
 
 ### Option 4: Physics-Informed Residual Learning
 ```
-sd = z - h_exact(q) - network(z, q)
+sd = (network(z, q) * y_scale + y_mean) - h_exact(q)
 
 where:
-  z = height above wall (nondimensionalized)
-  h_exact(q) = analytical support function (cube-specific)
-  network(z, q) = learned residual correction
+  z = cube centre distance to wall / L_actual
+  h_exact(q) = analytical support height (cube-specific)
+  network(z, q) = scaled residual (training target sd + h_exact)
 ```
 **Accuracy:** 84.7% @ 1e-4, MAE 6.1e-5 (run_029)
 
 **Inference:**
 1. Compute h_exact(q) analytically (rotation matrix method)
 2. Call network forward pass with [z, q]
-3. Combine: sd = z - h_exact(q) - residual
+3. Combine: sd = (raw * y_scale + y_mean) - h_exact(q)
 
 ### Option 1: Pure Overlap Network
 ```
@@ -143,30 +116,29 @@ where:
 ```
 **Accuracy:** 55.3% @ 1e-4, MAE 7.6e-4 (run_030, fallback model)
 
-**Inference:**
-1. Call network forward pass with [z, q]
-2. Output is signed distance directly
+**Inference:** not implemented in LIGGGHTS (model_type option1 is rejected at load time).
 
 ---
 
 ## Input Preparation Pipeline
 
-1. **Particle State**: z_phys, quaternion, L_actual
-2. **Canonicalize Quaternion**: if qw < 0, flip all components
-3. **Nondimensionalize Height**: z_unit = z_phys / L_actual
-4. **Form Input Tensor**: [z_unit, qw, qx, qy, qz]
-5. **Type Conversion**: convert float64 → float32 for model inference
-6. **Validate**: check for NaN/Inf, ranges
+1. **Particle State**: centre distance to wall (from the primitive wall: `deltan + radius`), quaternion, L_actual
+2. **Canonicalize Quaternion**: if qw < 0, flip all components; normalize
+3. **Nondimensionalize**: z_unit = centre_distance / L_actual
+4. **Prefilter**: skip the model if z_unit > z_prefilter
+5. **Form Inputs**: position_z = [z_unit], quat = [[qw, qx, qy, qz]], float32
+6. **Validate**: check for NaN/Inf
 
 ---
 
 ## Output Processing Pipeline
 
-1. **Model Inference**: forward pass → log10(overlap_unit) or residual
-2. **Denormalize**: overlap_unit = 10^(output) - eps (R00.3)
-3. **Rescale**: overlap_phys = overlap_unit * L_actual
-4. **Validate**: check for NaN/Inf, physically invalid values (overlap > 0)
-5. **Physics Integration**: pass overlap + contact_point + normal to physics model
+1. **Model Inference**: forward pass → r_s
+2. **Exact part**: h = h_exact(q, d)
+3. **Denormalize**: sd_unit = r_s * y_scale + y_mean - h (R00.3)
+4. **Rescale**: sd_phys = sd_unit * L_actual
+5. **Validate**: NaN/Inf → error; sd_unit < sd_too_deep → warning
+6. **Physics Integration**: deltan = sd_phys; contact if deltan <= 0
 
 ---
 
@@ -244,16 +216,11 @@ if (model->model_type() != "option4" && model->model_type() != "option1") {
 ### Runtime Query
 
 ```cpp
-// Prepare input
-torch::Tensor z_unit = torch::tensor({z_phys / L_actual}, at::kFloat32);
-torch::Tensor quat = torch::tensor({qw, qx, qy, qz}, at::kFloat32);
-
-// Query surrogate
-torch::Tensor log10_overlap = model->forward(z_unit, quat);
-
-// Denormalize and rescale
-double overlap_unit = std::pow(10.0, log10_overlap.item<float>()) - 1e-15;
-double overlap_phys = overlap_unit * L_actual;
+torch::Tensor pz   = torch::tensor({(float)z_unit}, torch::kFloat32);
+torch::Tensor quat = torch::tensor({qw, qx, qy, qz}, torch::kFloat32).reshape({1, 4});
+double raw     = model.forward({pz, quat}).toTensor().reshape({-1})[0].item<double>();
+double h       = h_exact_cube(q, dir_wall);
+double sd_phys = ((raw * y_scale + y_mean) - h) * L_actual;
 ```
 
 ---
@@ -263,9 +230,10 @@ double overlap_phys = overlap_unit * L_actual;
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | Input format | [z_unit, qw, qx, qy, qz] | Minimal, sufficient for wall contact; extensible for ss-ss |
-| Output format | Single scalar (log10 scale) | Numerically stable; covers [-5, +0.5] range; easy to denormalize |
-| Denormalization | 10^(output) - eps | Exact inverse of log10 transform; matches training procedure |
-| Rescaling | overlap_unit * L_actual | Exact; no tolerance or approximation needed |
+| Output format | Single scalar (scaled residual) | Matches run_029 training target `sd + h_exact` |
+| Denormalization | r_s*y_scale + y_mean - h_exact | Exact inverse of the training StandardScaler + residual decomposition |
+| Rescaling | sd_unit * L_actual | Exact; unit cube is the nondimensional reference |
+| dtype | float32 | Network weights are float32 |
 | Quaternion flip | Silent (no warning) | Standard normalization; deterministic; no user awareness needed |
 | Model identity | In scaler file (model_type) | Enables runtime model detection without filename parsing |
 | Format versioning | Explicit (ss_model_record_v1) | Enables forward/backward compatibility if format changes |
@@ -276,7 +244,7 @@ double overlap_phys = overlap_unit * L_actual;
 ## Testing and Validation
 
 **Unit Tests:**
-- Denormalization round-trip: denormalize(normalize(x)) ≈ x
+- Denormalization against training reference: identity quaternion, z ∈ {0.49, 0.50, 0.51} → sd ≈ z - 0.5 (|err| < 2e-4)
 - Quaternion canonicalization symmetry: q and -q both map to same canonical form
 - Rescaling correctness: overlap(L=1) and overlap(L=2) agree with model behavior
 
@@ -286,6 +254,6 @@ double overlap_phys = overlap_unit * L_actual;
 - Verify input/output tensor shapes
 
 **Numerical Tests:**
-- Extreme z_unit values (far outside training range): model still evaluates (extrapolation acceptable)
+- z_unit > z_prefilter: model not called; sd_unit < sd_too_deep: warning issued
 - Very small/large L_actual: rescaling numerically stable
 - Quaternions near boundaries (qw ≈ 0, qw ≈ 1): canonicalization correct

@@ -1170,152 +1170,62 @@ void FixWallGran::post_force_primitive(int vflag)
       #endif
 
       // **Surrogate Contact Model Query (Spec 04, T4.2)**
-      // Phase 3C Design: Use delta from primitiveWall_->resolveContact() for generalized normal
-        // Spec 04, Phase 3C: Query surrogate for particles that fit within bounding sphere
-        #ifdef SURROGATE_ACTIVE_FLAG
-        if(atom->surrogate_flag) {
-          // Early diagnostic: check if surrogate particle exists
-          static int first_surrogate_contact_attempt_ = 1;
-          if(first_surrogate_contact_attempt_) {
-            fprintf(stderr, "[SURROGATE_DEBUG] First surrogate particle encountered at step %d\n", 
-                    update->ntimestep);
-            first_surrogate_contact_attempt_ = 0;
-          }
-          
-          // Get characteristic length for surrogate particle
-          double L_actual = atom->characteristic_length[iPart];
-          if(L_actual <= 0.0) {
-            error->fix_error(FLERR, this, 
-              "Surrogate particle has invalid characteristic_length");
-          }
+      // The surrogate replaces the geometric overlap. run_029 contract (verified
+      // against the training code, see surrogate_contact.h):
+      //   z_unit  = centre distance to wall / L   (resolveContact returns dist - radius)
+      //   sd_unit = (out*y_scale + y_mean) - h_exact(q),  deltan = sd_unit * L
+      #ifdef SURROGATE_ACTIVE_FLAG
+      if(atom->surrogate_flag) {
+        const double L_actual = atom->characteristic_length[iPart];
+        if(L_actual <= 0.0)
+          error->fix_error(FLERR, this, "Surrogate particle has invalid characteristic_length");
+        if(!atom->quaternion)
+          error->fix_error(FLERR, this, "Surrogate particle missing quaternion data");
+        if(!surrogate_contact_model_ || !surrogate_contact_model_->is_loaded())
+          error->fix_error(FLERR, this, "Surrogate particles require model loaded; check init() phase");
 
-          // Bounding sphere radius for cube: sqrt(3)/2 * L_actual ≈ 0.866 * L_actual
-          // Query surrogate when bounding sphere is within detection range of wall
-          double bounding_radius = 0.866 * L_actual;
-          double detection_threshold = 3.0 * L_actual;  // Skip if further than 3 cube lengths
-          
-          // Centre distance from wall: deltan + radius of particle (for sphere approximation)
-          // For surrogate particles: use bounding sphere radius to define effective "particle"
-          double centre_distance = deltan + bounding_radius;
-          
-          // Diagnostic: log all calls within detection range
-          if(centre_distance < detection_threshold && centre_distance > -2.0 * L_actual) {
-            fprintf(stderr, 
-              "[SURROGATE_APPROACH] Step=%d, deltan=%.6e, centre_dist=%.6e, threshold=%.6e, "
-              "inside=%d\n",
-              update->ntimestep, deltan, centre_distance, detection_threshold,
-              centre_distance < detection_threshold ? 1 : 0);
-          }
-          
-          // Only process if close enough for contact
-          if(centre_distance < detection_threshold) {
-            // Spec 04, R04.2: Compute normalized distance
-            // s_unit = |deltan| / L_actual (absolute value, as per spec line 274)
-            // deltan < 0: particle penetrating wall (contact happening)
-            // deltan > 0: particle away from wall (no contact)
-            double s_unit = fabs(deltan) / L_actual;
+        // primitive wall: deltan = |centre - wall| - radius, delta = vector centre -> wall
+        const double centre_dist = deltan + sidata.radi;
+        const double z_unit = centre_dist / L_actual;
 
-            // Get particle quaternion and validate
-            double quat[4];
-            if(atom->quaternion) {
-              vectorCopy4D(atom->quaternion[iPart], quat);
-            } else {
-              error->fix_error(FLERR, this,
-                "Surrogate particle missing quaternion data");
-            }
+        // Prefilter (scalers.dat z_prefilter): cube cannot touch the wall
+        if(z_unit > surrogate_contact_model_->scaler_record.z_prefilter) {
+          if(c_history)
+            vectorZeroizeN(c_history[iPart], dnum_);
+          continue;
+        }
 
-            // Query surrogate model for contact overlap (Spec 04, R04.2: Contact Calculation Flow)
-            // SurrogateContactModel::query_overlap executes 7-step pipeline:
-            // (1) Validate inputs, (2) Prepare tensor, (3) Model forward, (4) Validate output,
-            // (5-6) Denormalize + rescale, (7) Physical validity check
-            if(surrogate_contact_model_ && surrogate_contact_model_->is_loaded()) {
-              double overlap_phys = surrogate_contact_model_->query_overlap(
-                s_unit,
-                L_actual,
-                quat,
-                atom->tag[iPart],
-                update->ntimestep);
-              
-              // CRITICAL DIAGNOSTIC: Log model output for all steps (especially near wall)
-              if(s_unit < 0.5) {  // Log when getting close to wall
-                fprintf(stderr,
-                  "[MODEL_OUTPUT] Step=%d, s_unit=%.6e, overlap_phys=%.6e, "
-                  "gap_predicted=%d\n",
-                  update->ntimestep, s_unit, overlap_phys, overlap_phys > 0.0 ? 1 : 0);
-              }
+        double dir_wall[3] = {0.0, 0.0, -1.0};
+        const double dmag = vectorMag3D(delta);
+        if(dmag > 0.0) {
+          dir_wall[0] = delta[0]/dmag; dir_wall[1] = delta[1]/dmag; dir_wall[2] = delta[2]/dmag;
+        }
 
-#ifdef SURROGATE_VALIDATION
-             // Validation Check 4: Numerical Safety (Covers R04.3)
-             if(std::isnan(overlap_phys) || std::isinf(overlap_phys)) {
-               char msg[512];
-               snprintf(msg, 512,
-                 "Surrogate query produced NaN/Inf at particle %d, step %d, s_unit=%.6e",
-                 atom->tag[iPart], update->ntimestep, s_unit);
-               error->warning(FLERR, msg);
-               // Skip this contact
-               if(c_history)
-                 vectorZeroizeN(c_history[iPart], dnum_);
-               continue;
-             }
-             
-             // Validation Check 5: Training Range Check (Covers R04.4, EC-1)
-             if(s_unit < -0.5 || s_unit > 2.0) {
-               char msg[512];
-               snprintf(msg, 512,
-                 "Surrogate warning: s_unit=%.6e outside training range [-0.5, 2.0] "
-                 "at particle %d, step %d (extrapolation)",
-                 s_unit, atom->tag[iPart], update->ntimestep);
-               error->warning(FLERR, msg);
-               // Continue with contact; just warned
-             }
-#endif
+        double sd_unit = 0.0;
+        const double sd_phys = surrogate_contact_model_->query_overlap(
+          z_unit, L_actual, atom->quaternion[iPart], dir_wall,
+          atom->tag[iPart], update->ntimestep, sd_unit);
 
-             // Spec 04, R04.4: If surrogate predicts overlap > 0 (gap), skip contact
-             if(overlap_phys > 0.0) {
-               // No contact; gap exists
-#ifdef SURROGATE_VALIDATION
-              // Validation Check 2: Gap Behavior (Covers R04.6)
-              // When gap opens, history should be hard-zeroed
-              if(c_history && c_history[iPart]) {
-                // This is expected; history will be cleared below
-              }
-#endif
-              if(c_history)
-                vectorZeroizeN(c_history[iPart], dnum_);
-              continue;
-            }
+        // Outside the accuracy zone of the training data (sd_too_deep = -0.1)
+        if(sd_unit < surrogate_contact_model_->scaler_record.sd_too_deep) {
+          char msg[256];
+          snprintf(msg, 256,
+            "Surrogate: particle %d penetration sd_unit=%g below sd_too_deep=%g at step " BIGINT_FORMAT " (extrapolation)",
+            atom->tag[iPart], sd_unit, surrogate_contact_model_->scaler_record.sd_too_deep,
+            update->ntimestep);
+          error->warning(FLERR, msg);
+        }
 
-              // Use surrogate overlap as signed distance (negative = contact)
-              // Spec 04, R04.1 (Hard Boundary): Surrogate is ONLY source of geometric contact data
-              // No mixing with native contact model
-              // overlap_phys is already correctly signed: negative = penetration, positive = gap
-              // deltan = gap distance (negative = penetration, same semantics)
-              deltan = overlap_phys;
-              intersectflag = (deltan <= 0);
-             
-             // Diagnostic: Log overlap and distance for ALL contact steps
-             fprintf(stderr,
-               "[SURROGATE_CONTACT] Step=%d, Particle=%d, s_unit=%.6e, "
-               "overlap_phys=%.6e (m), deltan=%.6e (m), L=%.3f (m)\n",
-               update->ntimestep, atom->tag[iPart], s_unit,
-               overlap_phys, deltan, L_actual);
+        // Spec 04, R04.1: surrogate is the only source of the geometric overlap
+        deltan = sd_phys;
+        intersectflag = (deltan <= 0);
 
-#ifdef SURROGATE_VALIDATION
-             // Validation Check 1: Contact Force Sanity (Covers R04.1, R04.3, R04.6)
-             // After overlap is set, deltan should be <= 0 for contact
-             if(deltan > 0.0) {
-               char msg[512];
-               snprintf(msg, 512,
-                 "Surrogate warning: deltan=%.6e should be <= 0 at contact, "
-                 "particle %d, step %d (check overlap sign)",
-                 deltan, atom->tag[iPart], update->ntimestep);
-               error->warning(FLERR, msg);
-             }
-#endif
-          } else {
-            error->fix_error(FLERR, this,
-              "Surrogate particles require model loaded; check init() phase");
-          }
+        // Spec 04, R04.6: gap -> hard-zero history, go to next particle
+        // (continue, not break: break would skip all remaining particles)
+        if(deltan > 0.0) {
+          if(c_history)
+            vectorZeroizeN(c_history[iPart], dnum_);
+          continue;
         }
       }
       #endif
@@ -1329,13 +1239,7 @@ void FixWallGran::post_force_primitive(int vflag)
       sidata.i = iPart;
       sidata.contact_history = c_history ? c_history[iPart] : NULL;
 
-      // Hard-zero contact history on break: follow superquadric pattern
-      // Spec 04, R04.6: Contact history hard-zeroing
-      // Dual-guard pattern: #ifdef SURROGATE_ACTIVE_FLAG + if(surrogate_flag)
       if(    (atom->superquadric_flag && deltan > 0.0)
-           #ifdef SURROGATE_ACTIVE_FLAG
-           || (atom->surrogate_flag && deltan > 0.0)
-           #endif
            || (atom->shapetype_flag && !impl->checkSurfaceIntersect(sidata)))
       {
         if(c_history)
@@ -1357,19 +1261,6 @@ void FixWallGran::post_force_primitive(int vflag)
         compute_force(sidata, v_wall); // LEGACY CODE (SPH)
       }
       
-      // DIAGNOSTIC: Log contact forces for surrogate particles
-      #ifdef SURROGATE_ACTIVE_FLAG
-      if(atom->surrogate_flag && deltan <= 0.0) {
-        // sidata.Fn is the normal force magnitude
-        // For diagnostic: log force at selected contact steps
-        if(update->ntimestep % 100 == 0 || deltan < -0.001) {
-          fprintf(stderr,
-            "[CONTACT_FORCE] Step=%d, Particle=%d, deltan=%.6e (m), "
-            "Fn=%.6e (N), overlap_contact=(yes)\n",
-            update->ntimestep, atom->tag[iPart], deltan, sidata.Fn);
-        }
-      }
-      #endif
     }
     
     else

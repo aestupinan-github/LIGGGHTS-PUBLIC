@@ -20,6 +20,9 @@ atom_style      surrogate ss-cube
 dimension       3
 boundary        f f f
 
+# Pair style gran with shear history requires newton off
+newton          off
+
 # ===== Geometry =====
 region          domain block -0.05 0.05 -0.05 0.05 0.0 0.2 units box
 create_box      1 domain
@@ -33,11 +36,13 @@ create_atoms    1 single 0.0 0.0 0.1
 # Density: 1000 kg/m³
 # Mass = density * volume = 1000 * 0.01³ = 1000 * 1e-6 = 0.001 kg
 # For sphere-like particles, use 'set' command instead of 'mass'
-set             atom * mass 0.001
 
 # Set characteristic length (for surrogate particles)
 # This is 100x smaller than trained model
 set             atom * diameter 0.01
+# Cube mass = rho * L^3 (rho = 1000 kg/m^3). MUST come after 'set diameter':
+# 'set diameter' recomputes mass as a sphere (pi/6 d^3 rho) and overwrites it.
+set             atom * mass 0.001
 
 # ===== Material Properties - Hertz Contact =====
 # Define material properties required by Hertz contact model
@@ -50,6 +55,10 @@ fix             materialproperties4 all property/global coefficientFriction pera
 # Initial velocity: 0 (free fall)
 velocity        all set 0.0 0.0 0.0
 
+# NVE integration (Newtonian Velocity Verlet Ensemble)
+# Applies Newton's laws of motion to surrogate particles
+fix             integrate all nve/sphere
+
 # Gravity: 9.81 m/s² downward
 fix             gravity all gravity 9.81 vector 0.0 0.0 -1.0
 
@@ -59,13 +68,14 @@ fix             gravity all gravity 9.81 vector 0.0 0.0 -1.0
 fix             wall all wall/gran model hertz tangential history primitive type 1 zplane 0.0
 
 # ===== Contact Model =====
-# Hertz contact + tangential history (specified in wall/gran fix for wall contact)
-# For particle-particle: not implemented for surrogate in Phase 3C
-# We use a dummy pair style to satisfy LIGGGHTS initialization
-pair_style      none
+# For surrogate particles with wall contact only (Phase 3C):
+# Wall/gran fix handles all contact via surrogate model
+# Pair style gran is used for neighbor list building only (no particle-particle contacts in this test)
+pair_style      gran model hertz tangential history
+pair_coeff      * *
 
 # Disable atom sorting (not needed for single particle)
-neigh_modify    check no
+neigh_modify    check no delay 0
 
 # ===== Time Integration =====
 # Timestep scaled down proportionally (smaller particles, faster dynamics)
@@ -77,6 +87,11 @@ compute         thermo_potential all pe
 
 thermo          1000
 thermo_style    custom step atoms c_thermo_kinetic c_thermo_potential
+
+# ===== VTK Output (for post-processing, e.g. ParaView) =====
+# Written to ./post/ relative to the working directory
+shell           mkdir post
+dump            dmpvtk all custom/vtk 100 post/test02_*.vtk id type x y z vx vy vz fx fy fz omegax omegay omegaz radius mass quat1 quat2 quat3 quat4
 
 # ===== Run =====
 # Simulate for 0.2 seconds (20,000 timesteps at dt=0.00001)

@@ -1,6 +1,6 @@
 # Spec 00 — Surrogate Interface Contract: Tasks
 
-**Status:** Approved (QA-resolved 2026-11-05)
+**Status:** Approved — revised 2026-11-17
 
 ## Critical Issues Resolved (2026-11-05)
 
@@ -10,11 +10,16 @@
   - Matches actual run_029 and run_030 models from training repo
   - Done when: Requirements document specifies format with all fields and examples
 
-- [x] **T0.2: Clarify denormalization formula with explicit operator precedence** — RESOLVED
-  - Formula is now: `overlap_unit = 10^(log10_output) - eps_small`
-  - Operator precedence explicit: power operation first, then subtract, then rescale
-  - Pseudocode provided for C++ reference implementation
-  - Done when: Design document includes explicit formula and C++ pseudocode
+- [x] **T0.2: Clarify denormalization formula** — RESOLVED, **CORRECTED 2026-11-17**
+  - ~~`overlap_unit = 10^(log10_output) - eps_small`~~ (wrong model; see requirements revision note)
+  - Correct (run_029 option4): `sd_unit = r_s*y_scale + y_mean - h_exact(q)`, `sd_phys = sd_unit*L_actual`
+  - Done when: requirements R00.1–R00.5 and design match training_code.py and the model output (verified)
+
+- [x] **T0.2b: Correct the repo scalers.dat and C++ pipeline to the run_029 contract** (2026-11-17)
+  - `SS_models/ss-cube-walls/scalers.dat` replaced by the run_029 original (y_mean/y_scale)
+  - `surrogate_interface.h`: `h_exact_cube`, `denormalize_signed_distance`; log10/eps code removed
+  - `surrogate_contact.h`: float32 inputs, z_unit = centre distance / L, option4-only guard
+  - Done when: C++ path reproduces the Python reference (z=0.49/0.50/0.51 → -0.010033/-0.000069/+0.009911) ✓
 
 - [x] **T0.3: Specify model identity validation at runtime** — RESOLVED
   - Model type (option4 vs option1) is now encoded in scalers.dat
@@ -44,15 +49,15 @@
   - Done when: Model artifact management is formalized (Phase 4+)
 
 - [ ] **T0.7: Document input feature ranges in scalers.dat** (Optional)
-  - Extract z_unit range from training data: [-0.5, +2.0]
+  - Extract z_unit range from training data: [0.400, 0.966] (dataset_003)
   - Store in scalers.dat for reference
   - Enables runtime warnings if query is outside range
   - Done when: Training repo provides range metadata
 
 ## Validation and Testing (Link to Spec 05)
 
-- [ ] **T0.8: Unit test for denormalization round-trip** (Spec 05)
-  - Test: denormalize(normalize(x)) ≈ x for all training outputs
+- [ ] **T0.8: Unit test for denormalization against the training reference** (Spec 05)
+  - Test: identity quaternion, z ∈ {0.49, 0.50, 0.51} → sd ≈ z - 0.5 (|err| < 2e-4); 45° about x at z=0.7071 → |sd| < 2e-4
   - Done when: Spec 05 testing infrastructure includes this unit test
 
 - [ ] **T0.9: Unit test for quaternion canonicalization** (Spec 05)
@@ -73,7 +78,6 @@
   - Done when: Spec 05 validation tests cover full input pipeline
 
 - [ ] **T0.12: Validate output rescaling pipeline** (Spec 05)
-  - Test: Denormalization formula is exact (no numerical error)
-  - Test: Rescaling by L_actual is exact
-  - Test: overlap_phys is correct for various L_actual values
+  - Test: h_exact_cube matches compute_h_exact_batch for random quaternions
+  - Test: Rescaling by L_actual is exact: sd_phys(L, z) = L · sd_unit(z/L)
   - Done when: Spec 05 validation tests cover full output pipeline

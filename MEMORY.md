@@ -49,7 +49,55 @@ Persistent memory for the surrogate shape (ss) project. Updated at the end of ev
 
 **Status:** RESOLVED ✅
 
-## ⚡ Session 6.5 Summary (2026-11-13) - CRITICAL SIGN FIXES
+## ⚡ Session 8 Summary (2026-11-17) — SURROGATE CONTRACT CORRECTED ✅
+
+**Supersedes:** Session 6.5 "critical sign fixes" and Session 7 "force discrepancy"
+(`SESSION_6_5_FIXES_SUMMARY.md`, `ANALYSIS_MODEL_PREDICTION_ISSUE.md`,
+`VALIDATION_FINDINGS_SESSION_7.md`, `SESSION_7_SUMMARY.md`). Those were based on a wrong
+model contract (log10 output, |deltan| input) and on a 0.52 kg particle (mass overwritten
+by `set diameter`). Their conclusions are invalid.
+
+### Verified run_029 contract (Spec 00 R00.1–R00.5)
+- Source of truth: `~/Programs/SS_models_training/interactions/ss_cube-wall/output/run_029/`
+  (`training_code.py` L200-223, L365-371; `scalers.dat`) and the training team's
+  `HANDOFF_TO_LIGGGHTS_C++_CORRECTIONS_20261105.md`. Python env with torch: `~/Programs/env_folder`.
+- Input: `forward(position_z[B], quat[B,4])`, float32. `position_z` = cube **centre** distance
+  to wall / L. Training range [0.400, 0.966].
+- Output: scaled residual. `sd_unit = out*y_scale + y_mean - h_exact(q)`, `sd_phys = sd_unit*L`.
+  `y_mean 0.74250850860714912`, `y_scale 0.13142255689813576`. No log10, no eps.
+- `h_exact(q) = 0.5(|u_x|+|u_y|+|u_z|)`, `u = R(q)^T d`, `d` = centre→wall unit vector
+  (floor: `d = -e_z`). Quaternion `[qw,qx,qy,qz]` body-to-world, same as LIGGGHTS `quat_to_mat`.
+- LIGGGHTS primitive wall: `deltan = centre_dist - radius` ⇒ `z_unit = (deltan + radius)/L`.
+- The repo `SS_models/ss-cube-walls/scalers.dat` had y_mean=0/y_scale=1 — replaced with the run_029 original.
+
+### Characteristic length (Spec 03 R03.3, decided with user)
+- The L=1 training cube is the **nondimensional unit case**; predictions are scaled by each particle's L.
+- `L_actual = diameter`: `set ... diameter D` sets radius = D/2 and characteristic_length = D (set.cpp).
+- `set ... diameter` recomputes mass as a sphere ⇒ set `mass = ρD³` **after** it in input scripts.
+
+### Validation (numerical verification only)
+| Case | L | e | max pen./L | t_contact | Hertz (undamped) pen./L, t_c |
+|---|---|---|---|---|---|
+| test_01c | 1 m | 0.899 | 0.0444 | ≈9.1 ms | 0.0464, 10.0 ms |
+| test_02 | 0.01 m | 0.900 | 0.0070 | ≈0.160 ms | 0.0074, 0.159 ms |
+All 4 cases keep the particle and rebound; no sd_too_deep warnings.
+
+### Other changes
+- VTK output (`dump custom/vtk`) in all surrogate test inputs → `post/`; quat1-4 dump allowed
+  for surrogate particles (dump_particle.cpp); `post/` dirs git-ignored.
+- `run_tests.sh` exports `SS_MODELS_DIR` (tests run from `output/test_N/`).
+- fix_wall_gran: surrogate gap now `continue`s (was `break`, which skipped remaining particles);
+  all stderr debug prints removed.
+- Load-time guard: only `model_type option4` accepted.
+
+### Open
+- Spec 04 EC-4: tilted-cube corner contact (centre up to 0.866 L) may be detected late by the
+  sphere-based primitive-wall neighbour list (radius L/2).
+- Nothing committed yet for Session 8.
+
+---
+
+## ⚡ Session 6.5 Summary (2026-11-13) - ⚠️ SUPERSEDED by Session 8 (wrong contract)
 
 ### 🔴 The Problem
 Particle disappeared in test_01_cube_1m_falling.in:
@@ -325,9 +373,9 @@ TESTEOF
 - **Location:** `SS_models/ss-cube-walls/`
   - `model.pt` — Trained LibTorch model
   - `scalers.dat` — Feature/output scalers (ss_model_record_v1 format)
-- **Scaler Parameters:** y_mean=0.0, y_scale=1.0 (identity scaling on output)
-- **Training Data:** 100k samples (dataset_003), z_unit ∈ [-0.5, 2.0]
-- **Model Accuracy:** MAE = 6.1e-5 (log10 scale)
+- **Scaler Parameters:** y_mean=0.74250850860714912, y_scale=0.13142255689813576 (StandardScaler of residual sd+h)
+- **Training Data:** 100k samples (dataset_003), z_unit (centre height / L) ∈ [0.400, 0.966]
+- **Model Accuracy:** sd MAE = 6.1e-5 (unit-cube length), 84.7 % within 1e-4
 
 ### Build Configuration
 - **CMake flags** (tested):
@@ -370,7 +418,7 @@ TESTEOF
 - Scaler format mismatch: code parses 1 value per line, `scalers.dat` has 4 values per line.
 - Model loaded from relative paths (`overlap_model.pt`, `scalers.dat`).
 - Input features: `[z_unit, qw, qx, qy, qz]` (5 features).
-- Output: single scalar `log10(overlap)`.
+- Output (discarded branch / old Cases model): single scalar `log10(overlap)` — NOT the run_029 contract.
 
 ### SQ Build Issue (RESOLVED)
 - CMake compiles fine with `-DENABLE_SQ=ON`, but runtime failed with "unknown atom style".
@@ -382,7 +430,6 @@ TESTEOF
 
 ## Open Questions
 
-- Scaler format: single-output (1 value) or multi-output (4 values)? Model not frozen yet — revisit when frozen.
 - Training data coverage: sufficient for L-rescaling across all particle sizes? Unknown, hoped sufficient for typical DEM magnitudes.
 - Multi-material support (Al vs Regolith): future work at physics model level.
 - Mesh-wall contact: future work.
@@ -402,7 +449,8 @@ TESTEOF
 | Model loading | At `init()` | Avoid per-contact overhead |
 | Model selection | Input file → shape name → model lookup → int key → runtime key access | Flexible at init, fast at runtime |
 | Mesh walls | Future work | Separate shape type for now |
-| Scaler format | Single-output (1 value/line) | From previous test; revisit when model frozen |
+| Scaler format | ss_model_record_v1, single output | run_029 frozen; denormalization per Spec 00 R00.3 |
+| Characteristic length | L = particle diameter (`set diameter`) | Unit cube = nondimensional reference; radius = L/2 (2026-11-17) |
 | Dual-guard | `#ifdef SURROGATE_ACTIVE_FLAG` + `if(atom->surrogate_flag)` | Prevents segfaults on non-surrogate atom styles |
 | Doxygen | Add `Doxyfile`; document only files we touch | Follows existing `@brief`/`@param`/`@return` convention |
 | Geometric vs. physics | Surrogate = geometric; physics (Hertz, etc.) unchanged | Clean separation of concerns |

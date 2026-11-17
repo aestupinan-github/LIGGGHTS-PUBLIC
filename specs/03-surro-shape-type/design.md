@@ -24,7 +24,7 @@ surrogate_flag = 0;  // initialize to 0, line ~172
 |------|------|--------|
 | Position | `atom->x[3]` | existing |
 | Orientation | `atom->quaternion[4]` | existing (if using granular atom style) |
-| Characteristic length | `double` | new per-particle array |
+| Characteristic length | `atom->characteristic_length[i]` (double) | new per-particle array; set by `set ... diameter` (L = D), default 1.0 |
 | Shape key | `int` | new per-particle array |
 
 ## Shape Database
@@ -53,3 +53,16 @@ std::vector<int> shape_keys;           // parallel to names (redundant but fast)
 - Compile-time: `ENABLE_SURROGATE` CMake option defines `SURROGATE_ACTIVE_FLAG`
 - Runtime: one shape type per simulation (like superquadrics/multisphere)
 - No mixing of shape types in same simulation
+
+## Characteristic Length Assignment (R03.3, 2026-11-17)
+
+`src/set.cpp`, keyword `DIAMETER` (dual-guarded):
+```cpp
+atom->radius[i] = 0.5 * dvalue * force->cg(atom->type[i]);
+#ifdef SURROGATE_ACTIVE_FLAG
+if(atom->surrogate_flag)
+  atom->characteristic_length[i] = 2.0 * atom->radius[i];
+#endif
+```
+`AtomVecSurrogate::create_atom` / `data_atom` keep the defaults `radius = 0.5`, `L = 1.0`.
+`characteristic_length` is already packed in exchange/restart buffers.

@@ -32,12 +32,12 @@ namespace LAMMPS_NS {
  * 
  * Thread-safe model inference (read-only after initialization)
  * 
- * **Phase 3C Design Notes:**
- * - Normal direction: Uses `delta` from primitiveWall_->resolveContact()
- *   Computes s_unit = |deltan| / L_actual (works for any wall orientation)
- * - Shape mismatch: Inferred from folder path /SS_models/{shape_name}-walls/
- *   (Phase 3D+: will add explicit metadata field to scalers.dat)
- * - Extrapolation: Skips if s_unit > 3 * L_actual (to be reviewed for elongated shapes)
+ * **Model contract (run_029, option4 residual; verified against training code):**
+ * - Input:  z_unit = (cube centre distance to wall) / L_actual, quaternion [qw,qx,qy,qz]
+ *           (float32, the network weights are float32). Training range z_unit in [0.40, 0.966].
+ * - Output: scaled residual r_s;  sd_unit = (r_s*y_scale + y_mean) - h_exact(q)
+ * - sd > 0 gap, sd < 0 penetration (same sign as LIGGGHTS deltan)
+ * - Shape: inferred from folder path /SS_models/{shape_name}-walls/
  */
 class SurrogateContactModel {
 public:
@@ -112,6 +112,15 @@ public:
         error->one(FLERR, msg);
       }
       
+      // Only the option4 residual contract (sd = residual - h_exact) is implemented
+      if (scaler_record.model_type != "option4") {
+        char msg[512];
+        snprintf(msg, 512,
+          "Surrogate model_type '%s' not supported (only 'option4': sd = out*y_scale + y_mean - h_exact)",
+          scaler_record.model_type.c_str());
+        error->one(FLERR, msg);
+      }
+      
       model_loaded_ = true;
     }
     catch (const std::exception &e) {
@@ -125,116 +134,80 @@ public:
   }
   
   /**
-   * @brief Query surrogate model for contact overlap
-   * 
-   * **Phase 3C: Generalized Normal Distance**
-   * - Input: s_unit (normalized distance along wall normal), quaternion
-   * - s_unit is computed as: |deltan| / L_actual
-   * - deltan comes from primitiveWall_->resolveContact()
-   * - This works for walls in ANY orientation (xy, yz, xz planes, cylinders, etc.)
-   * 
-   * Steps (Spec 04, R04.2 Contact Calculation Flow):
-   * 1. Validate inputs (s_unit, L_actual, quaternion)
-   * 2. Prepare input tensor [s_unit, qw, qx, qy, qz]
-   * 3. Query model: log10_output = model.forward(input_tensor)
-   * 4. Validate model output
-   * 5. Denormalize: overlap_unit = 10^(log10_output) - eps
-   * 6. Rescale: overlap_phys = overlap_unit * L_actual
-   * 7. Check physical validity (overlap <= 0 for wall contact)
-   * 
-   * @param s_unit          Normalized distance along wall normal = |deltan| / L_actual
-   * @param L_actual        Particle characteristic length
-   * @param quat_input      Particle orientation [qw, qx, qy, qz]
-   * @param particle_id     Particle ID (for error messages)
-   * @param step            Simulation step (for error context)
-   * 
-   * @return overlap_phys   Physical overlap
-   *                        ≤ 0 for contact, > 0 for gap
-   * 
+   * @brief Query surrogate model for the signed distance between cube and wall
+   *
+   * Pipeline (run_029 option4 residual model):
+   * 1. Validate inputs (z_unit finite, L_actual > 0, quaternion finite)
+   * 2. Canonicalize quaternion (qw >= 0), pack [z_unit, qw, qx, qy, qz]
+   * 3. raw = model.forward(position_z[1], quat[1,4])   (float32)
+   * 4. h   = h_exact_cube(q, dir_wall)
+   * 5. sd_unit = (raw*y_scale + y_mean) - h ;  sd_phys = sd_unit * L_actual
+   *
+   * The caller is responsible for the z_prefilter skip (no contact possible).
+   *
+   * @param z_unit       Cube centre distance to wall divided by L_actual
+   * @param L_actual     Particle characteristic length (cube edge)
+   * @param quat_input   Particle orientation [qw, qx, qy, qz]
+   * @param dir_wall     Unit vector from particle centre toward the wall (world frame)
+   * @param particle_id  Particle ID (for error messages)
+   * @param step         Simulation step (for error context)
+   * @param sd_unit_out  Output: dimensionless signed distance (for diagnostics/range checks)
+   *
+   * @return sd_phys     Physical signed distance; > 0 gap, <= 0 contact (penetration depth = -sd_phys)
+   *
    * @throws FLERR if any validation fails or model inference errors
    */
   double query_overlap(
-    double s_unit,
+    double z_unit,
     double L_actual,
-    double quat_input[4],
+    const double quat_input[4],
+    const double dir_wall[3],
     int particle_id,
-    int step)
+    int step,
+    double &sd_unit_out)
   {
 #ifdef SURROGATE_ACTIVE_FLAG
-    // Reconstruct z_phys from s_unit for validator (it uses z_phys internally)
-    // Note: z_phys is not used directly; validator uses it only for range checking
-    double z_phys = s_unit * L_actual;
-    
     // Step 1: Validate inputs
-    validator.validate_inputs_for_surrogate(z_phys, L_actual, quat_input, particle_id);
+    validator.validate_inputs_for_surrogate(z_unit * L_actual, L_actual, quat_input, particle_id);
     
-    // Step 2: Prepare input tensor
+    // Step 2: Prepare input [z_unit, qw, qx, qy, qz] with canonical quaternion
     double input_tensor[5];
-    SurrogateInterface::prepare_input_tensor(z_phys, L_actual, quat_input, input_tensor);
-    
-    double z_unit = input_tensor[0];  // This is actually s_unit (generalized normal distance)
+    double quat_copy[4] = {quat_input[0], quat_input[1], quat_input[2], quat_input[3]};
+    SurrogateInterface::prepare_input_tensor(z_unit * L_actual, L_actual, quat_copy, input_tensor);
+    double quat_canon[4] = {input_tensor[1], input_tensor[2], input_tensor[3], input_tensor[4]};
+    SurrogateInterface::normalize_quaternion(quat_canon);
     
     try {
-      // Step 3: Query model
-      // Model expects: position_z as scalar/[1] and quat as [1, 4]
-      // Model internally does: torch.unsqueeze(position_z, 1) -> [1, 1]
-      //                        torch.cat([unsqueezed_position_z, quat_norm], 1) -> [1, 5]
-      double pos_z = input_tensor[0];  // z_unit
-      double quat_data[4] = {input_tensor[1], input_tensor[2], input_tensor[3], input_tensor[4]};
+      // Step 3: Model forward. Signature forward(position_z [B], quat [B,4]); weights float32.
+      torch::Tensor position_z = torch::tensor({(float)input_tensor[0]}, torch::kFloat32);
+      torch::Tensor quat_tensor = torch::tensor(
+        {(float)quat_canon[0], (float)quat_canon[1], (float)quat_canon[2], (float)quat_canon[3]},
+        torch::kFloat32).reshape({1, 4});
       
-      // Convert to torch tensors
-      // position_z should be shape [1] (batch size 1 with scalar value)
-      torch::Tensor position_z = torch::from_blob(&pos_z, {1}, torch::kFloat64);
-      torch::Tensor quat_tensor = torch::from_blob(quat_data, {1, 4}, torch::kFloat64);
-      
-      // Get device and dtype from model parameters
-      auto params = model.parameters();
-      auto param_iter = params.begin();
-      torch::Device device = (*param_iter).device();
-      torch::ScalarType dtype = (*param_iter).scalar_type();
-      
-      position_z = position_z.to(device).to(dtype);
-      quat_tensor = quat_tensor.to(device).to(dtype);
-      
-       // Forward pass with two arguments (wrapped in IValue for torch::jit::Module::forward)
-       std::vector<torch::jit::IValue> model_input;
-       model_input.push_back(position_z);
-       model_input.push_back(quat_tensor);
-       torch::Tensor output = model.forward(model_input).toTensor();
-       double log10_output = output[0].item<double>();
-       
-       // DIAGNOSTIC: Log raw model output
-       if(z_unit < 0.5) {  // Log when close to or past surface
-         fprintf(stderr,
-           "[MODEL_RAW_OUTPUT] Step=%d, z_unit=%.6e, log10_output=%.6e, "
-           "y_mean=%.6e, y_scale=%.6e\n",
-           step, z_unit, log10_output, scaler_record.y_mean, scaler_record.y_scale);
-       }
-       
-       // Step 4: Validate model output
-       validator.validate_model_output(log10_output, z_unit, particle_id);
-       
-       // Step 5-6: Denormalize and rescale
-       double overlap_phys = validator.validate_outputs_from_surrogate(
-         log10_output, z_unit,
-         scaler_record.y_mean, scaler_record.y_scale,
-         L_actual,
-         particle_id);
-      
-      // Step 7: Check physical validity (wall contact: overlap ≤ 0 means contact)
-      if (overlap_phys > 0.0) {
-        // No contact; gap exists
-        return overlap_phys;  // Return positive (will be used to skip force calc)
+      std::vector<torch::jit::IValue> model_input;
+      model_input.push_back(position_z);
+      model_input.push_back(quat_tensor);
+      torch::Tensor output;
+      {
+        torch::NoGradGuard no_grad;
+        output = model.forward(model_input).toTensor();
       }
+      double raw_output = output.reshape({-1})[0].item<double>();
       
-      return overlap_phys;  // Return negative or zero (contact)
+      // Step 4: exact support height toward the wall
+      double h_unit = SurrogateInterface::h_exact_cube(quat_canon, dir_wall);
       
+      // Step 5: denormalize + rescale
+      return validator.validate_outputs_from_surrogate(
+        raw_output, z_unit,
+        scaler_record.y_mean, scaler_record.y_scale,
+        h_unit, L_actual, particle_id, sd_unit_out);
     }
     catch (const std::exception &e) {
       char msg[1024];
       snprintf(msg, 1024,
-        "Surrogate model inference failed at particle %d, step %d, shape '%s', s_unit=%.6e:\n  Error: %s",
-        particle_id, step, loaded_shape_name.c_str(), s_unit, e.what());
+        "Surrogate model inference failed at particle %d, step %d, shape '%s', z_unit=%.6e:\n  Error: %s",
+        particle_id, step, loaded_shape_name.c_str(), z_unit, e.what());
       error->one(FLERR, msg);
     }
     

@@ -3,8 +3,8 @@ run_id run_029
 model_type option4
 input_dtype float64
 input_units canonical_L1
-y_mean 0.0
-y_scale 1.0
+y_mean 0.74250850860714912
+y_scale 0.13142255689813576
 r_circ 0.866025403784
 z_prefilter 1.0
 sd_too_deep -0.1

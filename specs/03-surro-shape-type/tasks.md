@@ -7,3 +7,4 @@
 - [ ] Add `ENABLE_SURROGATE` CMake option
 - [ ] Implement global shape database (parallel vectors)
 - [ ] Implement dual-guard pattern in fix_wall_gran.cpp
+- [x] Set characteristic_length from `set ... diameter` (L = D) in set.cpp (R03.3, RF-8) — verified with L=0.01 m test_02 (2026-11-17)

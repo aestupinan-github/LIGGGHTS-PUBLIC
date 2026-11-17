@@ -1,0 +1,333 @@
+LIGGGHTS (Version LIGGGHTS-PUBLIC 3.8.0, compiled 2026-11-11 09:50:45 by su_estupinan, git commit b0596d1b6dca30fe03789ecd9b3e0112edc1d23d, build configuration: MPI VTK SURROGATE SMALLBIG, models: HERTZ TANGENTIAL_HISTORY TANGENTIAL_NO_HISTORY COHESION_SJKR COHESION_SJKR2 ROLLING_EPSD2 SURFACE_DEFAULT)
+# Test Case 01b: Surrogate Contact - Cube (L=1m) Falling on Plane - SMALLER TIMESTEP
+#
+# Purpose: Test surrogate contact model stability with smaller timestep (dt=0.00005)
+# Expected: Test if particle survives contact longer with finer time integration
+#
+# Model: run_029 (ss-cube-walls, 84.7% accuracy)
+# Shape: ss-cube with L_actual = 1.0 m (matches training scale)
+
+# ===== Simulation Control =====
+units           si
+atom_style      surrogate ss-cube
+dimension       3
+boundary        f f f
+
+# Pair style gran with shear history requires newton off
+newton          off
+
+# ===== Geometry =====
+region          domain block -5.0 5.0 -5.0 5.0 0.0 20.0 units box
+create_box      1 domain
+Created orthogonal box = (-5 -5 0) to (5 5 20)
+  1 by 1 by 1 MPI processor grid
+
+# ===== Particle Creation =====
+# Single cube particle at height z=10m, falling under gravity
+create_atoms    1 single 0.0 0.0 10.0
+Created 1 atoms
+
+# ===== Material Properties =====
+# Use density to properly set mass
+set             atom * diameter 1.0
+  1 settings made for diameter
+# Cube mass = rho * L^3 (rho = 1000 kg/m^3). MUST come after 'set diameter':
+# 'set diameter' recomputes mass as a sphere (pi/6 d^3 rho) and overwrites it.
+set             atom * mass 1000.0
+  1 settings made for mass
+
+# ===== Material Properties - Hertz Contact =====
+fix             materialproperties all property/global youngsModulus peratomtype 1.0e9
+fix             materialproperties2 all property/global poissonsRatio peratomtype 0.25
+fix             materialproperties3 all property/global coefficientRestitution peratomtypepair 1 0.9
+fix             materialproperties4 all property/global coefficientFriction peratomtypepair 1 0.2
+
+# ===== Velocity & Forces =====
+velocity        all set 0.0 0.0 0.0
+
+fix             integrate all nve/sphere
+fix             gravity all gravity 9.81 vector 0.0 0.0 -1.0
+
+# ===== Wall =====
+fix             wall all wall/gran model hertz tangential history primitive type 1 zplane 0.0
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/contact_models.h:365)
+
+# ===== Contact Model =====
+pair_style      gran model hertz tangential history
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/contact_models.h:365)
+pair_coeff      * *
+
+neigh_modify    check no delay 0
+
+# ===== Time Integration =====
+# SMALLER TIMESTEP for stability
+timestep        0.00005
+
+# Compute energy
+compute         thermo_kinetic all ke
+compute         thermo_potential all pe
+
+thermo          200
+thermo_style    custom step atoms c_thermo_kinetic c_thermo_potential
+
+# ===== VTK Output (for post-processing, e.g. ParaView) =====
+# Written to ./post/ relative to the working directory
+shell           mkdir post
+dump            dmpvtk all custom/vtk 200 post/test01b_*.vtk id type x y z vx vy vz fx fy fz omegax omegay omegaz radius mass quat1 quat2 quat3 quat4
+
+# ===== Run =====
+# Simulate for 2 seconds (40,000 timesteps at dt=0.00005)
+run             40000
+Loading surrogate contact model for shape 'ss-cube' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:679)
+Surrogate model loaded: shape='ss-cube', model='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/test_cases/surrogate_contact/../../SS_models/ss-cube-walls/model.pt', scalers='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/test_cases/surrogate_contact/../../SS_models/ss-cube-walls/scalers.dat' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:692)
+Setting up run at Tue Nov 17 11:26:28 2026
+
+Memory usage per processor = 4.32737 Mbytes
+    Step    Atoms       thermo_k       thermo_p 
+       0        1              0              0 
+     200        1       4.811805              0 
+     400        1       19.24722              0 
+     600        1      43.306245              0 
+     800        1       76.98888              0 
+    1000        1      120.29512              0 
+    1200        1      173.22498              0 
+    1400        1      235.77844              0 
+    1600        1      307.95552              0 
+    1800        1       389.7562              0 
+    2000        1       481.1805              0 
+    2200        1       582.2284              0 
+    2400        1      692.89992              0 
+    2600        1      813.19505              0 
+    2800        1      943.11378              0 
+    3000        1      1082.6561              0 
+    3200        1      1231.8221              0 
+    3400        1      1390.6116              0 
+    3600        1      1559.0248              0 
+    3800        1      1737.0616              0 
+    4000        1       1924.722              0 
+    4200        1       2122.006              0 
+    4400        1      2328.9136              0 
+    4600        1      2545.4448              0 
+    4800        1      2771.5997              0 
+    5000        1      3007.3781              0 
+    5200        1      3252.7802              0 
+    5400        1      3507.8058              0 
+    5600        1      3772.4551              0 
+    5800        1       4046.728              0 
+    6000        1      4330.6245              0 
+    6200        1      4624.1446              0 
+    6400        1      4927.2883              0 
+    6600        1      5240.0556              0 
+    6800        1      5562.4466              0 
+    7000        1      5894.4611              0 
+    7200        1      6236.0993              0 
+    7400        1       6587.361              0 
+    7600        1      6948.2464              0 
+    7800        1      7318.7554              0 
+    8000        1       7698.888              0 
+    8200        1      8088.6442              0 
+    8400        1       8488.024              0 
+    8600        1      8897.0274              0 
+    8800        1      9315.6545              0 
+    9000        1      9743.9051              0 
+    9200        1      10181.779              0 
+    9400        1      10629.277              0 
+    9600        1      11086.399              0 
+    9800        1      11553.144              0 
+   10000        1      12029.512              0 
+   10200        1      12515.505              0 
+   10400        1      13011.121              0 
+   10600        1       13516.36              0 
+   10800        1      14031.223              0 
+   11000        1       14555.71              0 
+   11200        1       15089.82              0 
+   11400        1      15633.554              0 
+   11600        1      16186.912              0 
+   11800        1      16749.893              0 
+   12000        1      17322.498              0 
+   12200        1      17904.726              0 
+   12400        1      18496.578              0 
+   12600        1      19098.054              0 
+   12800        1      19709.153              0 
+   13000        1      20329.876              0 
+   13200        1      20960.223              0 
+   13400        1      21600.193              0 
+   13600        1      22249.786              0 
+   13800        1      22909.004              0 
+   14000        1      23577.844              0 
+   14200        1      24256.309              0 
+   14400        1      24944.397              0 
+   14600        1      25642.109              0 
+   14800        1      26349.444              0 
+   15000        1      27066.403              0 
+   15200        1      27792.986              0 
+   15400        1      28529.192              0 
+   15600        1      29275.022              0 
+   15800        1      30030.475              0 
+   16000        1      30795.552              0 
+   16200        1      31570.253              0 
+   16400        1      32354.577              0 
+   16600        1      33148.525              0 
+   16800        1      33952.096              0 
+   17000        1      34765.291              0 
+   17200        1       35588.11              0 
+   17400        1      36420.552              0 
+   17600        1      37262.618              0 
+   17800        1      38114.307              0 
+   18000        1       38975.62              0 
+   18200        1      39846.557              0 
+   18400        1      40727.118              0 
+   18600        1      41617.301              0 
+   18800        1      42517.109              0 
+   19000        1       43426.54              0 
+   19200        1      44345.595              0 
+   19400        1      45274.273              0 
+   19600        1      46212.575              0 
+   19800        1      47160.501              0 
+   20000        1       48118.05              0 
+   20200        1      49085.223              0 
+   20400        1      50062.019              0 
+   20600        1      51048.439              0 
+   20800        1      52044.483              0 
+   21000        1       53050.15              0 
+   21200        1      54065.441              0 
+   21400        1      55090.355              0 
+   21600        1      56124.894              0 
+   21800        1      57169.055              0 
+   22000        1      58222.841              0 
+   22200        1      59286.249              0 
+   22400        1      60359.282              0 
+   22600        1      61441.938              0 
+   22800        1      62534.218              0 
+   23000        1      63636.121              0 
+   23200        1      64747.648              0 
+   23400        1      65868.799              0 
+   23600        1      66999.573              0 
+   23800        1      68139.971              0 
+   24000        1      69289.992              0 
+   24200        1      70449.637              0 
+   24400        1      71618.906              0 
+   24600        1      72797.798              0 
+   24800        1      73986.314              0 
+   25000        1      75184.453              0 
+   25200        1      76392.216              0 
+   25400        1      77609.603              0 
+   25600        1      78836.613              0 
+   25800        1      80073.247              0 
+   26000        1      81319.505              0 
+   26200        1      82575.386              0 
+   26400        1       83840.89              0 
+   26600        1      85116.019              0 
+   26800        1      86400.771              0 
+   27000        1      87695.146              0 
+   27200        1      88999.145              0 
+   27400        1      90312.768              0 
+   27600        1      91636.014              0 
+   27800        1      92968.884              0 
+   28000        1      65145.441              0 
+   28200        1      74407.745              0 
+   28400        1      73215.835              0 
+   28600        1      72033.549              0 
+   28800        1      70860.887              0 
+   29000        1      69697.848              0 
+   29200        1      68544.433              0 
+   29400        1      67400.641              0 
+   29600        1      66266.473              0 
+   29800        1      65141.929              0 
+   30000        1      64027.008              0 
+   30200        1      62921.711              0 
+   30400        1      61826.037              0 
+   30600        1      60739.987              0 
+   30800        1      59663.561              0 
+   31000        1      58596.758              0 
+   31200        1      57539.579              0 
+   31400        1      56492.024              0 
+   31600        1      55454.092              0 
+   31800        1      54425.783              0 
+   32000        1      53407.099              0 
+   32200        1      52398.038              0 
+   32400        1        51398.6              0 
+   32600        1      50408.786              0 
+   32800        1      49428.596              0 
+   33000        1       48458.03              0 
+   33200        1      47497.087              0 
+   33400        1      46545.767              0 
+   33600        1      45604.071              0 
+   33800        1      44671.999              0 
+   34000        1      43749.551              0 
+   34200        1      42836.726              0 
+   34400        1      41933.524              0 
+   34600        1      41039.947              0 
+   34800        1      40155.992              0 
+   35000        1      39281.662              0 
+   35200        1      38416.955              0 
+   35400        1      37561.872              0 
+   35600        1      36716.412              0 
+   35800        1      35880.576              0 
+   36000        1      35054.363              0 
+   36200        1      34237.775              0 
+   36400        1      33430.809              0 
+   36600        1      32633.468              0 
+   36800        1       31845.75              0 
+   37000        1      31067.655              0 
+   37200        1      30299.185              0 
+   37400        1      29540.337              0 
+   37600        1      28791.114              0 
+   37800        1      28051.514              0 
+   38000        1      27321.537              0 
+   38200        1      26601.185              0 
+   38400        1      25890.455              0 
+   38600        1       25189.35              0 
+   38800        1      24497.868              0 
+   39000        1       23816.01              0 
+   39200        1      23143.775              0 
+   39400        1      22481.164              0 
+   39600        1      21828.176              0 
+   39800        1      21184.813              0 
+   40000        1      20551.072              0 
+Loop time of 0.206614 on 1 procs for 40000 steps with 1 atoms, finish time Tue Nov 17 11:26:28 2026
+
+
+Pair  time (%) = 0.00264716 (1.28121)
+Neigh time (%) = 0.146031 (70.6785)
+Comm  time (%) = 0.00205023 (0.992303)
+Outpt time (%) = 0.0169994 (8.22761)
+Other time (%) = 0.0388854 (18.8203)
+
+Nlocal:    1 ave 1 max 1 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:    0 ave 0 max 0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:    0 ave 0 max 0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 0
+Ave neighs/atom = 0
+Neighbor list builds = 40000
+Dangerous builds = 0
+
+# ===== Output =====
+print "===== TEST 01b (SMALL DT) COMPLETE ====="
+===== TEST 01b (SMALL DT) COMPLETE =====
+print "Cube (L=1m) fell and contacted wall via surrogate model (dt=0.00005)"
+Cube (L=1m) fell and contacted wall via surrogate model (dt=0.00005)
+print "Expected: Particle should survive contact phase longer with finer timestep"
+Expected: Particle should survive contact phase longer with finer timestep

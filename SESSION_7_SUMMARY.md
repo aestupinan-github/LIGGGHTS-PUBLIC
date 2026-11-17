@@ -1,3 +1,8 @@
+> **⚠️ SUPERSEDED (2026-11-17, Session 8).** This document is based on a wrong surrogate
+> contract (log10 output, `|deltan|` input, identity scalers) and, for the force analysis, on a
+> 0.52 kg particle. Its fixes and conclusions are invalid. See `MEMORY.md` (Session 8) and
+> `specs/00-surrogate-interface-contract/requirements.md` for the verified contract.
+
 # Session 7 Summary: Physics Validation & Force Discrepancy Discovery
 
 **Date:** 2026-11-13  

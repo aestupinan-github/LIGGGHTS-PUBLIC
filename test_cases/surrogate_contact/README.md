@@ -23,8 +23,8 @@ Test suite for Spec 04 (Contact Models) validation. These tests verify that the 
 
 **Model Used:**
 - run_029 (ss-cube-walls, 84.7% accuracy on training set)
-- Input: [z_unit, qw, qx, qy, qz] where z_unit ∈ [-0.5, 2.0] during training
-- Output: log10(overlap)
+- Input: z_unit = cube centre distance to wall / L (training range [0.40, 0.966]), quaternion [qw, qx, qy, qz]
+- Output: scaled residual; sd = out*y_scale + y_mean - h_exact(q), sd_phys = sd * L (Spec 00 R00.3)
 
 **Physics Model:**
 - Hertz normal contact (elastic)
@@ -76,14 +76,20 @@ These tests verify Spec 04 Phase 3C design decisions:
 - Far-field: particles too far above wall → no force
 
 ### **L-Rescaling (Q6)**
-- Test 02 demonstrates overlap_phys = overlap_unit * L_actual
+- Test 02 demonstrates sd_phys = sd_unit * L_actual (L = particle diameter, Spec 03 R03.3)
 - Same model applied at 100x smaller scale; contact force scales accordingly
 
 ### **Skip Threshold (Q10)**
-- If s_unit > 3 * L_actual → skip contact
+- If z_unit > z_prefilter (scalers.dat, 1.0) → model skipped; sd_unit < sd_too_deep (-0.1) → warning
 - Both tests designed to stay within trained range
 
 ---
+
+## Output
+
+Each run writes VTK files (ParaView) to `output/test_N/post/<test>_<step>.vtk`
+(id, type, x, v, f, omega, radius, mass, orientation as `TENSOR`).
+Mass must be set **after** `set diameter` (which recomputes it as a sphere): `mass = rho*L^3`.
 
 ## Running the Tests
 
@@ -157,7 +163,7 @@ Timestep   Atoms   KE           PE           Total E
 3. **Contact force = 0 after impact**
    - Surrogate model may not be queried
    - Check: deltan <= cutoff threshold
-   - Check: s_unit within [-0.5, 2.0] (training range)
+   - Check: z_unit <= z_prefilter; `SS_MODELS_DIR` set when not running via run_tests.sh
    - Check: Quaternion is valid (canonicalized)
 
 4. **Simulation crashes**
@@ -187,7 +193,7 @@ Timestep   Atoms   KE           PE           Total E
   - R04.6: Hard-zero contact history on break
   
 - **Spec 00:** Interface Contract
-  - R00.1: Input normalization (z_unit = s_unit)
+  - R00.1: Input normalization (z_unit = centre distance / L)
   - R00.2: Output denormalization formula
   
 - **Spec 03:** Shape Type

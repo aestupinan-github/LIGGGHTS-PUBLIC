@@ -64,18 +64,15 @@ public:
   ==================================================================== */
   
   /**
-   * @brief Validate z_unit (normalized height above wall)
-   * 
-   * Check for NaN/Inf; warn if severe extrapolation (outside ±10.0)
-   * Permits values within extrapolation threshold
-   * 
-   * Spec 00, R00.1 & R04.3
-   * 
-   * @param z_unit      Normalized height
+   * @brief Validate z_unit (cube centre height above wall / L)
+   *
+   * Errors on NaN/Inf. Range handling (prefilter / too-deep warning) is done
+   * by the caller using z_prefilter and sd_too_deep from scalers.dat.
+   *
+   * @param z_unit      Normalized centre height
    * @param particle_id Particle ID (for messages)
-   * 
+   *
    * @throws FLERR if z_unit is NaN or Inf
-   * @note May warn if severe extrapolation (optional warning)
    */
   void validate_z_unit(double z_unit, int particle_id)
   {
@@ -84,18 +81,6 @@ public:
       snprintf(msg, 512,
         "Invalid z_unit (NaN/Inf) at particle %d", particle_id);
       error->one(FLERR, msg);
-    }
-    
-    // Warn if severe extrapolation (outside training range)
-    if (!SurrogateInterface::is_z_unit_in_extrapolation_threshold(z_unit)) {
-      char msg[512];
-      snprintf(msg, 512,
-        "WARNING: severe extrapolation at particle %d: z_unit=%g (outside ±10.0 threshold). "
-        "Training range: [-0.5, +2.0]. Proceeding but results may be unreliable.",
-        particle_id, z_unit);
-      // Note: Could call error->warning() here if available; for now, just proceed
-      // Uncomment if LAMMPS has error->warning():
-      // error->warning(FLERR, msg);
     }
   }
   
@@ -162,41 +147,31 @@ public:
   ==================================================================== */
   
   /**
-   * @brief Validate model output (log10 scale)
-   * 
-   * Check for NaN/Inf; warn if outside training range
-   * 
-   * Spec 04, R04.3
-   * 
-   * @param log10_output  Raw model output (log10 scale)
+   * @brief Validate raw model output (scaled residual)
+   *
+   * @param raw_output    Raw network output
    * @param z_unit        Input z_unit (for diagnostic)
    * @param particle_id   Particle ID (for messages)
-   * 
-   * @throws FLERR if log10_output is NaN or Inf
+   *
+   * @throws FLERR if raw_output is NaN or Inf
    */
-  void validate_model_output(double log10_output, double z_unit, int particle_id)
+  void validate_model_output(double raw_output, double z_unit, int particle_id)
   {
-    if (!SurrogateInterface::is_finite(log10_output)) {
+    if (!SurrogateInterface::is_finite(raw_output)) {
       char msg[512];
       snprintf(msg, 512,
         "Surrogate inference produced NaN/Inf at particle %d with z_unit=%g",
         particle_id, z_unit);
       error->one(FLERR, msg);
     }
-    
-    // Warn if outside training range (but permit)
-    if (!SurrogateInterface::is_model_output_in_training_range(log10_output)) {
-      // Optional warning; could log diagnostic
-      // Training range: [-5.0, +0.5]
-    }
   }
   
   /**
-   * @brief Validate denormalized overlap
+   * @brief Validate denormalized signed distance (unit cube)
    * 
    * Check for NaN/Inf after denormalization
    * 
-   * @param overlap_unit  Denormalized overlap
+   * @param overlap_unit  Denormalized signed distance sd_unit
    * @param particle_id   Particle ID (for error message)
    * 
    * @throws FLERR if overlap_unit is NaN or Inf
@@ -271,44 +246,45 @@ public:
   }
   
   /**
-   * @brief Full output validation pipeline
-   * 
-   * Validates all outputs after surrogate query:
-   * - Model output (not NaN/Inf, in training range warning)
-   * - Denormalized overlap (not NaN/Inf)
-   * - Physical overlap (not NaN/Inf)
-   * 
-   * Spec 04, R04.3 (After Surrogate Query)
-   * 
-   * @param log10_output  Raw model output
+   * @brief Full output pipeline: raw output -> physical signed distance
+   *
+   * sd_unit = (raw*y_scale + y_mean) - h_unit ;  sd_phys = sd_unit * L_actual
+   * (run_029 option4 residual model; see SurrogateInterface::denormalize_signed_distance)
+   *
+   * @param raw_output    Raw network output (scaled residual)
    * @param z_unit        Input z_unit (for diagnostic)
-   * @param y_mean        Normalization mean
-   * @param y_scale       Normalization scale
+   * @param y_mean        Scaler mean
+   * @param y_scale       Scaler scale
+   * @param h_unit        Exact support height h(q) for the unit cube
    * @param L_actual      Characteristic length
    * @param particle_id   Particle ID (for error messages)
-   * 
-   * @return overlap_phys Validated physical overlap
-   * 
-   * @throws FLERR if any validation fails
+   * @param sd_unit_out   Output: dimensionless signed distance
+   *
+   * @return sd_phys      Physical signed distance (>0 gap, <0 penetration)
+   *
+   * @throws FLERR if any value is NaN/Inf
    */
   double validate_outputs_from_surrogate(
-    double log10_output,
+    double raw_output,
     double z_unit,
     double y_mean,
     double y_scale,
+    double h_unit,
     double L_actual,
-    int particle_id)
+    int particle_id,
+    double &sd_unit_out)
   {
-    validate_model_output(log10_output, z_unit, particle_id);
+    validate_model_output(raw_output, z_unit, particle_id);
     
-    double overlap_unit = SurrogateInterface::denormalize_overlap(
-      log10_output, y_mean, y_scale, SurrogateInterface::EPS_DENORM);
-    validate_denormalized_overlap(overlap_unit, particle_id);
+    double sd_unit = SurrogateInterface::denormalize_signed_distance(
+      raw_output, y_mean, y_scale, h_unit);
+    validate_denormalized_overlap(sd_unit, particle_id);
     
-    double overlap_phys = SurrogateInterface::rescale_overlap_physical(overlap_unit, L_actual);
-    validate_physical_overlap(overlap_phys, particle_id);
+    double sd_phys = SurrogateInterface::rescale_to_physical(sd_unit, L_actual);
+    validate_physical_overlap(sd_phys, particle_id);
     
-    return overlap_phys;
+    sd_unit_out = sd_unit;
+    return sd_phys;
   }
 };
 

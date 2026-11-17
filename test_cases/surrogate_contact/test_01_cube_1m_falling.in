@@ -33,11 +33,13 @@ create_atoms    1 single 0.0 0.0 10.0
 # Density: 1000 kg/m³
 # Mass = density * volume = 1000 * 1³ = 1000 kg
 # For sphere-like particles, use 'set' command instead of 'mass'
-set             atom * mass 1000.0
 
 # Set characteristic length (for surrogate particles)
 # This MUST match the trained model scale
 set             atom * diameter 1.0
+# Cube mass = rho * L^3 (rho = 1000 kg/m^3). MUST come after 'set diameter':
+# 'set diameter' recomputes mass as a sphere (pi/6 d^3 rho) and overwrites it.
+set             atom * mass 1000.0
 
 # ===== Material Properties - Hertz Contact =====
 # Define material properties required by Hertz contact model
@@ -84,6 +86,11 @@ compute         thermo_potential all pe
 
 thermo          100
 thermo_style    custom step atoms c_thermo_kinetic c_thermo_potential
+
+# ===== VTK Output (for post-processing, e.g. ParaView) =====
+# Written to ./post/ relative to the working directory
+shell           mkdir post
+dump            dmpvtk all custom/vtk 100 post/test01_*.vtk id type x y z vx vy vz fx fy fz omegax omegay omegaz radius mass quat1 quat2 quat3 quat4
 
 # ===== Run =====
 # Simulate for 2 seconds (20,000 timesteps at dt=0.0001)
