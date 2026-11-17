@@ -7,3 +7,5 @@
 - [ ] (FUTURE) Implement mesh-wall contact
 - [x] Prefilter (z_prefilter) and too-deep warning (sd_too_deep) from scalers.dat
 - [ ] Resolve EC-4: late detection of tilted-cube corner contacts (sphere-based neighbour list)
+- [ ] **MANDATORY** R04.2b: contact point for torque (normal and friction). Blocked on: surrogate team model output (request in `DOCUMENTATION.md/REQUEST_SURROGATE_TEAM_CONTACT_POINT_20261117.md`) or user approval of the option4 exact support point
+- [ ] Send the contact-point request to the surrogate (training) team

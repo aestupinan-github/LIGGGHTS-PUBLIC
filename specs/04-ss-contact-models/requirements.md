@@ -69,6 +69,45 @@ if(atom->surrogate_flag) {
 6. **Validate:** NaN/Inf → error; `sd_unit < sd_too_deep` → warning (extrapolation)
 7. **Physics Integration:** IF `deltan <= 0`, pass `-deltan` (penetration) to the force model
 
+### R04.2b: Contact Point for Torque (MANDATORY, open — recorded 2026-11-17)
+
+**Status:** Not implemented. Required before results with tilted or rotating cubes can be trusted.
+
+**Contact normal (no action needed):** for a cube against a plane, the force direction is
+the **wall normal**, for face, edge and corner contacts alike. LIGGGHTS already has it
+(`delta` from the primitive wall). Only for future particle–particle (ss-ss) contact can
+the normal depend on the particle orientation (e.g. a face normal of one cube).
+
+**Contact point (missing):** the force must act at the touching feature (corner, edge
+midpoint or face centre), not through the particle centre. The lever arm `r = x_c − x_centre`
+gives the torque `τ = r × F` for both the normal force and the friction force.
+
+Current behaviour (Phase 3C): `sidata.is_non_spherical` is false for surrogate particles, so
+- normal force: no torque (acts through the centre);
+- friction force: torque with the sphere lever arm `cri ≈ L/2` along the normal.
+
+Lever arm relative to the centre, per unit L (cube resting on a plane, computed 2026-11-17):
+
+| Orientation | Touching vertices | In-plane lever arm | Normal-force torque |
+|---|---|---|---|
+| flat face | 4 | 0 | 0 |
+| edge, exactly 45° | 2 | 0 | 0 |
+| corner, body diagonal vertical | 1 | 0 | 0 |
+| edge, 30° about x | 2 | 0.183 | ≠ 0 |
+| corner, generic tilt q = (0.9, 0.3, 0.2, 0.1) | 1 | 0.259 | ≠ 0 |
+
+Symmetric orientations give zero torque; every generic tilt does not. A tilted cube therefore
+cannot tip over, and normal impact cannot change its spin, until this is implemented.
+
+**Constitution rule 1:** the contact point must come from the same geometric evaluation as
+the overlap. The run_029 model outputs only `sd`. Therefore:
+- RF-8: THE SYSTEM SHALL obtain the wall contact point from the surrogate evaluation that
+  produces the overlap (model output, or the exact part of the same option4 evaluation if
+  approved), and SHALL set `sidata.contact_point` / `is_non_spherical` so that the native
+  normal and tangential models apply `τ = r × F`.
+- Request to the surrogate (training) team: add the contact point to the model output —
+  `DOCUMENTATION.md/REQUEST_SURROGATE_TEAM_CONTACT_POINT_20261117.md`.
+
 ### R04.3: Input Validation (CRITICAL - Prevents Silent Failures)
 
 **Before Surrogate Query:**

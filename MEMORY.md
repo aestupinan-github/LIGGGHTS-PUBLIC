@@ -93,9 +93,16 @@ All 4 cases keep the particle and rebound; no sd_too_deep warnings.
 - Load-time guard: only `model_type option4` accepted.
 
 ### Open
+- **MANDATORY (Spec 04 R04.2b): contact point for torque.** Force direction on a plane = wall
+  normal (no change needed). Missing: application point (corner/edge/face). Today the normal force
+  acts through the centre (no torque) and friction uses the sphere lever arm L/2. Symmetric
+  orientations (flat, 45° edge, diagonal-vertical corner) give zero torque anyway; generic tilts do
+  not (lever arm up to ~0.26 L). Request to the surrogate team drafted:
+  `DOCUMENTATION.md/REQUEST_SURROGATE_TEAM_CONTACT_POINT_20261117.md` — **not yet sent**.
 - Spec 04 EC-4: tilted-cube corner contact (centre up to 0.866 L) may be detected late by the
-  sphere-based primitive-wall neighbour list (radius L/2).
-- Nothing committed yet for Session 8.
+  sphere-based primitive-wall neighbour list (radius L/2). Decided fix: use r_circ·L for surrogates.
+- For tilted/spinning cases also needed: quaternion integration in fix nve/sphere (orientation is
+  never updated today), cube inertia m·L²/6 (code uses sphere 0.4·m·r²), `set ... quat` for surrogates.
 
 ---
 
