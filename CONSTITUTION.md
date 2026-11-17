@@ -37,4 +37,4 @@ Add a new particle shape family — "surrogate" (`atom_style surrogate`) — who
 
 - `MEMORY.md` — persistent memory across sessions (confirmed facts, open questions, decisions, status)
 - `specs/` — requirements, design, tasks per topic
-- `LOG.md` — session-by-session bitácora
+- `DOCUMENTATION.md/LOG.md` — session-by-session bitácora (all generated high-level docs live in `DOCUMENTATION.md/`)

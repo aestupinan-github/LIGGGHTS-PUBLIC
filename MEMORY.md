@@ -2,6 +2,8 @@
 
 Persistent memory for the surrogate shape (ss) project. Updated at the end of every working session.
 
+Generated high-level documentation (session reports, analyses, QA reviews, handoffs, `LOG.md`) lives in `DOCUMENTATION.md/` (a folder). File names below without a path refer to that folder.
+
 ---
 
 ## ⚡ Session 3 Summary (2026-11-10)
@@ -52,7 +54,7 @@ Persistent memory for the surrogate shape (ss) project. Updated at the end of ev
 ## ⚡ Session 8 Summary (2026-11-17) — SURROGATE CONTRACT CORRECTED ✅
 
 **Supersedes:** Session 6.5 "critical sign fixes" and Session 7 "force discrepancy"
-(`SESSION_6_5_FIXES_SUMMARY.md`, `ANALYSIS_MODEL_PREDICTION_ISSUE.md`,
+(`DOCUMENTATION.md/SESSION_6_5_FIXES_SUMMARY.md`, `ANALYSIS_MODEL_PREDICTION_ISSUE.md`,
 `VALIDATION_FINDINGS_SESSION_7.md`, `SESSION_7_SUMMARY.md`). Those were based on a wrong
 model contract (log10 output, |deltan| input) and on a 0.52 kg particle (mass overwritten
 by `set diameter`). Their conclusions are invalid.
@@ -464,9 +466,9 @@ TESTEOF
 **Status:** ✅ **SPECIFICATIONS RESOLVED** — All 21 QA issues have been addressed
 
 **Resolution Documents:**
-- Full QA review with all 21 issues: `QA_REVIEW_PHASE3C_SPECS_20261105.md`
-- Executive summary for quick reference: `QA_REVIEW_EXECUTIVE_SUMMARY.md`
-- Navigation and search guide: `QA_REVIEW_INDEX.md`
+- Full QA review with all 21 issues: `DOCUMENTATION.md/QA_REVIEW_PHASE3C_SPECS_20261105.md`
+- Executive summary for quick reference: `DOCUMENTATION.md/QA_REVIEW_EXECUTIVE_SUMMARY.md`
+- Navigation and search guide: `DOCUMENTATION.md/QA_REVIEW_INDEX.md`
 
 **Specs Updated:**
 - ✅ **Spec 00** (Interface Contract): Scaler format locked, denormalization formula clarified, model identity validation added
@@ -513,7 +515,7 @@ TESTEOF
 
 **Status:** ❌ NOT READY FOR IMPLEMENTATION — 21 issues identified
 
-**QA Review Document:** `/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/QA_REVIEW_PHASE3C_SPECS_20261105.md`
+**QA Review Document:** `DOCUMENTATION.md/QA_REVIEW_PHASE3C_SPECS_20261105.md`
 
 **Critical Issues (Block Implementation):**
 1. Scaler format mismatch — Spec 00 prescribes format; actual deliverable uses different format

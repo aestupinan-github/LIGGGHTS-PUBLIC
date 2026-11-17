@@ -27,6 +27,17 @@ LIGGGHTS® is a registered trade marks of DCS Computing GmbH, the producer of th
 LIGGGHTS®-PUBLIC is open-source, distributed under the terms of the GNU Public License, version 2 or later. LIGGGHTS®-PUBLIC is part of CFDEM(R)project: www.liggghts.com | www.cfdem.com
 Core developer and main author: Christoph Kloss, christoph.kloss@dcs-computing.com
 
+## Surrogate Shape (ss) development
+
+This fork adds a surrogate particle shape (`atom_style surrogate`) whose wall overlap is
+predicted by a trained ML model (LibTorch). Project files:
+
+* `AGENTS.md` / `CONSTITUTION.md` — build notes, conventions and non-negotiable rules
+* `MEMORY.md` — current project state and decisions
+* `specs/` — requirements, design and tasks per topic
+* `DOCUMENTATION.md/` — session reports, analyses, QA reviews and the session log
+* `test_cases/surrogate_contact/` — test inputs; `reference/` holds frozen reference results
+
 ## LIGGGHTS® version information
 All LIGGGHTS® versions are based on a specific version of LIGGGHTS®, as printed in the file src/version.h. LIGGGHTS® versions are identidied by a version number (e.g. ‘3.0’), a branch name (which is ‘LIGGGHTS®-PUBLIC’ for your release of LIGGGHTS), compilation info (date / time stamp and user name), and a LAMMPS version number (which is the LAMMPS version that the LIGGGHTS®-PUBLIC release is based on). The LAMMPS “version” is the date when it was released, such as 1 May 2010.
 

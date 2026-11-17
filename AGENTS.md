@@ -37,6 +37,7 @@ build/liggghts -in examples/LIGGGHTS/Tutorials_public/cohesion/in.cohesion
 - `src/` — all source (~850 files, flat). `Cases/` is a scratch area for simulation runs/results (incl. ML overlap-model experiments), not library code — don't treat it as source.
 - `examples/LIGGGHTS/Tutorials_public/` — canonical input scripts (`in.*`) per feature.
 - `doc/` — HTML/txt manual. `lib/` — vendored LAMMPS package libs (gpu, cuda, meam, ...), not needed for the core build.
+- `DOCUMENTATION.md/` (a folder) — home for all high-level documentation the agent generates: session reports, analyses, QA reviews, handoffs, `LOG.md`. Write new ones there, never at the repo root. Root keeps only `AGENTS.md`, `MEMORY.md`, `README.md`, `CONSTITUTION.md` and tool/upstream files. Specs stay in `specs/`, test-case docs in `test_cases/`.
 
 ## Conventions
 
