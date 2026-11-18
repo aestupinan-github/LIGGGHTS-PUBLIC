@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft
+Approved (scope agreed with user 2026-11-18) — revised
 
 ## Context and Objective
 
@@ -32,7 +32,6 @@ The project currently has no automated testing. The CI workflow runs `ctest` but
 - External test frameworks (Google Test, Catch2, doctest).
 - Figure generation / plotting (deferred).
 - Performance benchmarking.
-- Parallel/MPI-specific testing.
 
 ## Definitions
 
@@ -60,16 +59,31 @@ The project currently has no automated testing. The CI workflow runs `ctest` but
 - RF-12: THE SYSTEM SHALL support test-first development: a test may be written before the corresponding implementation exists.
 - RF-13: IF a test fails, THEN THE SYSTEM SHALL provide sufficient diagnostic output to identify the cause.
 - RF-14: THE SYSTEM SHALL support regression tests for critical existing functionality.
-- RF-15: (Surrogate-specific) THE SYSTEM SHALL include unit tests for quaternion canonicalization (q and -q both map to canonical form)
-- RF-16: (Surrogate-specific) THE SYSTEM SHALL include unit tests for denormalization formula (10^x - eps round-trips correctly)
-- RF-17: (Surrogate-specific) THE SYSTEM SHALL include unit tests for nondimensionalization rescaling (z_unit and L_actual rescaling is exact)
-- RF-18: (Surrogate-specific) THE SYSTEM SHALL include integration tests that load both run_029 (Option 4) and run_030 (Option 1) models and verify model_type detection
-- RF-19: (Surrogate-specific) THE SYSTEM SHALL include integration tests that exercise full inference pipeline (input preparation → model query → denormalization → rescaling)
-- RF-20: (Surrogate-specific) THE SYSTEM SHALL include error handling tests (invalid input, missing model, corrupt scaler file, model inference failure)
+- RF-15: (Surrogate) THE SYSTEM SHALL include unit tests for quaternion canonicalization (q and −q map to the same canonical form).
+- RF-16: (Surrogate) THE SYSTEM SHALL include unit tests for the run_029 denormalization
+  `sd = out·y_scale + y_mean − h_exact(q)` (Spec 00 R00.3) — the earlier "10^x − eps" item was the
+  wrong contract (superseded 2026-11-17).
+- RF-17: (Surrogate) THE SYSTEM SHALL include unit tests for the exact cube geometry: `h_exact`
+  (support height) and the contact-point stopgap (lever arm table of Spec 04 R04.2b), and for
+  nondimensional rescaling (sd_phys(L, z) = L·sd_unit(z/L)).
+- RF-18: (Surrogate) THE SYSTEM SHALL include a test that loads the run_029 model (option4) and
+  reproduces the Python reference signed distances at fixed inputs (Spec 00 verification table).
+  (run_030/option1 is not implemented in LIGGGHTS and is out of scope.)
+- RF-19: (Surrogate) THE SYSTEM SHALL include regression tests that run the surrogate test cases
+  and compare key metrics (first-impact restitution, post-impact spin, energy never above E₀,
+  particle not lost) with the frozen `test_cases/surrogate_contact/reference/` results.
+- RF-20: (Surrogate) THE SYSTEM SHALL include error-handling tests (unknown model_type / missing
+  model directory → clean error, not a crash).
+- RF-21: THE SYSTEM SHALL verify that a default build (ENABLE_SURROGATE=OFF) still configures and
+  builds (CI build without LibTorch).
+- RF-22: WHEN the build has no surrogate support, THE SYSTEM SHALL skip surrogate tests
+  (not register them), so `ctest` passes on CI.
 
 ## Numerical and Physical Requirements
 
-- NR-1: THE SYSTEM SHALL use a default tolerance of 1e-4 for integration tests (surrogate MAE is ~6.1e-5; tolerance = MAE + 2σ margin). Per-test override allowed for stricter/looser tolerances.
+- NR-1: Default tolerance 1e-4 (relative for |ref| > 1, absolute otherwise). Per-test override:
+  model-vs-Python reference 2e-4 (unit-cube length; model MAE ≈ 6e-5), exact geometry 1e-9,
+  regression metrics vs frozen reference 1e-6 relative (same binary, deterministic) or as stated.
 - NR-2: WHEN comparing floating-point values, THE SYSTEM SHALL use relative error, absolute error, or a combination thereof, as appropriate for the quantity being tested.
 - NR-3: THE SYSTEM SHALL document the tolerance and comparison method for each test.
 - NR-4: THE SYSTEM SHALL produce deterministic results for tests that do not involve random number generation.
@@ -96,7 +110,7 @@ The project currently has no automated testing. The CI workflow runs `ctest` but
 - External test frameworks (Google Test, Catch2, doctest).
 - Figure generation and plotting.
 - Performance benchmarking and profiling.
-- Parallel/MPI-specific testing.
+- MPI multi-rank tests in CI (a serial/MPI consistency check is run manually, Spec 06).
 - GUI or web-based test reporting.
 - Test coverage reporting.
 
@@ -112,5 +126,6 @@ The project currently has no automated testing. The CI workflow runs `ctest` but
 
 ## Open Questions
 
-- [NEEDS CLARIFICATION] What specific existing functionality should be covered by regression tests? (To be determined as development progresses.)
-- [NEEDS CLARIFICATION] Should the default tolerance be adjusted based on experience with initial tests?
+- Resolved 2026-11-18: regression coverage = surrogate cases (RF-19) + one sphere tutorial
+  (`cohesion`, completes without error).
+- [OPEN] CI cannot build with LibTorch (not installed on the runner); surrogate tests run locally.

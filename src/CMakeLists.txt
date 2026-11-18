@@ -582,6 +582,11 @@ MESSAGE(STATUS "Enabled models:${ENABLED_MODELS}")
 MESSAGE(STATUS "=======================================")
 
 #=======================================
+#=======================================
+# Test suite (Spec 05): ctest --test-dir <build> --output-on-failure
+ENABLE_TESTING()
+ADD_SUBDIRECTORY(${CMAKE_CURRENT_SOURCE_DIR}/../tests ${CMAKE_BINARY_DIR}/tests)
+
 INSTALL(TARGETS liggghts_bin liggghts_static liggghts_shared
   RUNTIME DESTINATION bin
   LIBRARY DESTINATION lib

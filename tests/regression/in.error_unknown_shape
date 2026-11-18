@@ -1,0 +1,3 @@
+# Error-handling test (Spec 05 RF-20): unknown surrogate shape -> clean LIGGGHTS error, no crash
+units           si
+atom_style      surrogate ss-does-not-exist

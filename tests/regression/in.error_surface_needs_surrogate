@@ -1,0 +1,16 @@
+# Error-handling test (Spec 05 RF-20): 'surface surrogate' with a non-surrogate atom style -> clean error
+units           si
+atom_style      sphere
+boundary        f f f
+newton          off
+region          domain block -0.1 0.1 -0.1 0.1 0.0 0.2 units box
+create_box      1 domain
+create_atoms    1 single 0.0 0.0 0.1
+set             atom * diameter 0.01 density 1000
+fix             m1 all property/global youngsModulus peratomtype 1.0e9
+fix             m2 all property/global poissonsRatio peratomtype 0.25
+fix             m3 all property/global coefficientRestitution peratomtypepair 1 0.9
+fix             m4 all property/global coefficientFriction peratomtypepair 1 0.2
+pair_style      gran model hertz tangential history surface surrogate
+pair_coeff      * *
+run             1

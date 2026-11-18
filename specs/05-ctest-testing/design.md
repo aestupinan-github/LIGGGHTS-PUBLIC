@@ -2,7 +2,7 @@
 
 ## Status
 
-Draft
+Approved — implemented 2026-11-18 (see "Implementation 2026-11-18")
 
 ## Requirements Traceability
 
@@ -208,3 +208,29 @@ ctest --test-dir build -R <test_name> --output-on-failure
 - The `liggghts` binary is built and available at `build/liggghts` before running integration tests.
 - Test input scripts are self-contained and don't require external data files (except golden files).
 - The CMake build system is the primary build system (not the legacy make build).
+
+
+## Implementation 2026-11-18
+
+**Layout** (tests live next to the source build, registered from `src/CMakeLists.txt`):
+
+```
+tests/
+  CMakeLists.txt              # included by src/CMakeLists.txt (ENABLE_TESTING + add_subdirectory)
+  unit/test_surrogate_geometry.cpp   # RF-15/16/17: canonicalization, h_exact, contact point, rescale
+  unit/test_surrogate_model.cpp      # RF-18: run_029 model vs Python reference values (LibTorch)
+  regression/check_case.py           # RF-19: run a case, extract metrics, compare with reference
+  regression/expected_metrics.dat    # frozen metrics (from test_cases/surrogate_contact/reference/)
+  regression/in.error_*              # RF-20: error-handling inputs
+```
+
+- Unit tests are standalone executables returning 0/1 and printing expected vs actual on failure.
+- Surrogate tests are registered only `IF(ENABLE_SURROGATE)` (RF-22); the sphere regression test
+  (`cohesion` tutorial runs to completion) is always registered.
+- Regression check: `python3 check_case.py <liggghts> <input> <metrics-ref> <tol>` runs the case in
+  a scratch dir (`SS_MODELS_DIR` set by CTest `ENVIRONMENT`), parses thermo (z_c, KE, E_rot, E_tot),
+  computes metrics (particle present at end, max(E_tot)/E₀ ≤ 1 + 1e-9, z_c at fixed steps,
+  E_rot at end) and compares with the reference within tolerance.
+- Python 3 (standard library only) is required for regression tests; found via `find_package(Python3)`.
+- Error-handling tests use CTest `WILL_FAIL` / `PASS_REGULAR_EXPRESSION` on the LIGGGHTS error text.
+- CI: `ctest --output-on-failure` (non-surrogate build → unit/surrogate tests not registered).

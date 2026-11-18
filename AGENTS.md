@@ -26,11 +26,15 @@ cmake --build build -j
 
 ## Testing
 
-There is **no test suite** — CI's `ctest` step passes vacuously (no `add_test` anywhere). Verification = build, then run an example input, e.g.:
+CTest suite in `tests/` (Spec 05), registered from `src/CMakeLists.txt`:
 
 ```bash
-build/liggghts -in examples/LIGGGHTS/Tutorials_public/cohesion/in.cohesion
+ctest --test-dir build --output-on-failure      # surrogate build: 10 tests; default build: 1
 ```
+
+Surrogate tests (unit + regression against `test_cases/surrogate_contact/reference/`) are only
+registered with `-DENABLE_SURROGATE=ON`. Run them after any change to surrogate, contact or
+integrator code; update a reference only after an intended physics change.
 
 ## Repo layout
 

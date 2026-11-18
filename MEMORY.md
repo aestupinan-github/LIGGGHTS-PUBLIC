@@ -79,12 +79,16 @@ curvature-based reff for SQ; contact-point definition (stopgap) for near-edge/fa
 2. Restart files unsupported for surrogate — `.scratch/surrogate-restart/issues/01-restart-not-supported.md`.
 3. `.gitignore` ignores itself → ignore rules (output/, log.liggghts) are local only.
 
+**Testing (Spec 05, 2026-11-18):** `ctest --test-dir build --output-on-failure` → 10 tests
+(unit: geometry + run_029 model vs Python; regression: test_02/03/03b/04/05c vs `reference/`;
+error handling; sphere tutorial). Default build registers only the sphere test. Update a reference
+only after an intended change (copy the new output.log, note it here).
+
 **Open (later):**
 4. Multi-shape per simulation (Spec 03 R03.6a/R03.9 table: per-particle shape_key input, model
    registry by shape_key, pair-model paths, per-shape L↔r and volume).
 5. Anisotropic-inertia shapes need a body-frame integrator (Spec 04 R04.2e).
 6. ss-ss contact (Spec 04 R04.7), mesh walls (R04.8).
-7. No automated tests (ctest empty; Spec 05).
 8. No experimental / physical validation yet (only numerical: Hertz estimates, SQ reference).
 
 **Next steps (proposed):** send the contact-point request →
