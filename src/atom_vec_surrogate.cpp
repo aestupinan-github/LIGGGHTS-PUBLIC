@@ -166,6 +166,8 @@ void AtomVecSurrogate::register_shape(const char *shape_name)
   atom->surrogate_shape_names.push_back(std::string(shape_name));
   atom->surrogate_shape_keys.push_back(atom->surrogate_shape_current_key);
   atom->surrogate_shape_inertia_factor.push_back(geom->inertia_factor);
+  atom->surrogate_shape_bounding_radius.push_back(geom->bounding_radius);
+  atom->surrogate_shape_volume_factor.push_back(geom->volume_factor);
   int assigned_key = atom->surrogate_shape_current_key;
   atom->surrogate_shape_current_key++;
 
@@ -785,15 +787,13 @@ void AtomVecSurrogate::create_atom(int itype, double *coord)
   atom->v[nlocal][1] = 0.0;
   atom->v[nlocal][2] = 0.0;
 
-  atom->radius[nlocal] = 0.5;
+  // default L = 1 (Spec 03 R03.3); radius = bounding radius r_circ*L (Spec 03 R03.11)
+  atom->radius[nlocal] = atom->surrogate_shape_bounding_radius.empty() ? 0.5
+                         : atom->surrogate_shape_bounding_radius[0];
   atom->density[nlocal] = 1.0;
-  if (domain->dimension == 2)
-    atom->rmass[nlocal] = MY_PI *
-      atom->radius[nlocal]*atom->radius[nlocal]*atom->density[nlocal]; 
-  else
-    atom->rmass[nlocal] = 4.0*MY_PI/3.0 *
-      atom->radius[nlocal]*atom->radius[nlocal]*atom->radius[nlocal] * 
-      atom->density[nlocal];
+  // default mass = density * shape volume (k_V * L^3, L = 1)
+  atom->rmass[nlocal] = atom->density[nlocal] *
+    (atom->surrogate_shape_volume_factor.empty() ? 1.0 : atom->surrogate_shape_volume_factor[0]);
 
   atom->omega[nlocal][0] = 0.0;
   atom->omega[nlocal][1] = 0.0;

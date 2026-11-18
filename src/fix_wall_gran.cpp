@@ -797,19 +797,8 @@ void FixWallGran::pre_force(int vflag)
     
     if(rebuildPrimitiveNeighlist_)
     {
-#ifdef SURROGATE_ACTIVE_FLAG
-      // Spec 04 R04.2d: surrogate particles reach the wall with their circumscribed
-      // sphere (r_circ*L), not their inscribed radius
-      if(atom->surrogate_flag && surrogate_shape_)
-      {
-        surrogate_bounding_radius_.resize(nlocal > 0 ? nlocal : 1);
-        for(int i = 0; i < nlocal; i++)
-          surrogate_bounding_radius_[i] =
-            surrogate_shape_->bounding_radius * atom->characteristic_length[i];
-        primitiveWall_->buildNeighList(neighbor->skin,x_,surrogate_bounding_radius_.data(),nlocal);
-      }
-      else
-#endif
+      // surrogate particles: atom->radius is the bounding radius r_circ*L (Spec 03 R03.11),
+      // so the generic call below already covers corner contacts (Spec 04 R04.2d)
       primitiveWall_->buildNeighList(radius_ ? neighbor->skin:(r0_+neighbor->skin),x_,radius_,nlocal);
     }
 
@@ -1153,11 +1142,11 @@ void FixWallGran::post_force_primitive(int vflag)
 
     // Spec 04 R04.2d: a surrogate particle may touch the wall as long as its
     // circumscribed sphere (r_circ*L) does; the exact answer comes from the model
+    // (atom->radius of a surrogate particle IS its bounding radius, Spec 03 R03.11)
     bool surrogate_in_reach = false;
 #ifdef SURROGATE_ACTIVE_FLAG
-    if(atom->surrogate_flag && surrogate_shape_)
-      surrogate_in_reach = (deltan + sidata.radi) <=
-        surrogate_shape_->bounding_radius * atom->characteristic_length[iPart];
+    if(atom->surrogate_flag)
+      surrogate_in_reach = (deltan <= 0.0);
 #endif
 
     if(surrogate_in_reach || deltan <= 0 || deltan < contactDistanceMultiplier*radius[iPart])
@@ -1223,8 +1212,12 @@ void FixWallGran::post_force_primitive(int vflag)
           error->fix_error(FLERR, this, "Surrogate particles require model loaded; check init() phase");
 
         // primitive wall: deltan = |centre - wall| - radius, delta = vector centre -> wall
+        // (radius = bounding radius r_circ*L, Spec 03 R03.11)
         const double centre_dist = deltan + sidata.radi;
         const double z_unit = centre_dist / L_actual;
+        // contact law (Hertz reff, normal-vector scaling) uses the inscribed radius L/2,
+        // unchanged from the validated face/edge/corner results (Spec 04 R04.2b/RF-8c)
+        sidata.radi = 0.5 * L_actual;
 
         // Prefilter (scalers.dat z_prefilter): cube cannot touch the wall
         if(z_unit > surrogate_contact_model_->scaler_record.z_prefilter) {

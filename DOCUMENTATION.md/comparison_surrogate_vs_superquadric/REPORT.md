@@ -270,8 +270,9 @@ columns documented in the header); raw per-repeat timings: `data/timing_raw_warm
    made the surrogate's neighbour build ≈ 150 ms vs 42 ms (loop 178–205 ms vs 63–65 ms,
    `data/timing_raw_default_bins.dat`). This is a bookkeeping artefact of a large empty box with
    one particle, not contact cost, so the comparison above fixes both to the same bin size.
-   For production runs `neigh_modify binsize` (or the bounding radius as neighbour radius)
-   should be considered for surrogate particles.
+   **Fixed 2026-11-18** (Spec 03 R03.11): surrogate `radius` is now the bounding radius
+   0.866·L; with default settings the surrogate neighbour time is 43 ms per run, equal to SQ
+   (loop 70–86 ms), results unchanged (ctest regression).
 2. *Scaling with particle count.* The model cost is per wall contact, so in dense systems the
    ~15 µs per evaluation will dominate; batching all contacts of a step into one forward pass
    (one tensor of size N) would amortise the per-call overhead — not implemented yet.

@@ -56,16 +56,16 @@ atom_style surrogate ss-cube
 
 **Storage:** `atom->characteristic_length[i]` (double, per-particle array)
 
-**Initialization (decided 2026-11-17):** `L_actual` = particle **diameter**.
-- `set atom|type|group ... diameter D` sets `radius = D/2` **and** `characteristic_length = D`
-  (for a cube: edge length = inscribed-sphere diameter).
-- Default for newly created particles (`create_atoms`, `read_data`): `radius = 0.5`, `L_actual = 1.0`
-  (consistent with the same rule).
+**Initialization (decided 2026-11-17, radius revised 2026-11-18 → R03.11):** `L_actual` = particle **diameter**.
+- `set atom|type|group ... diameter D` sets `characteristic_length = D` and `radius = r_circ·D`
+  (bounding radius, R03.11; it was D/2 until 2026-11-18).
+- Default for newly created particles (`create_atoms`, `read_data`): `L_actual = 1.0`,
+  `radius = r_circ`, mass = density · k_V.
 - Rationale: the unit cube (L=1) is the nondimensional training reference; each particle is
   mapped onto it by its own `L_actual` (Constitution rule 9). `radius = L_actual/2` is also
   what Spec 04 uses to recover the centre distance from the primitive-wall `deltan`.
-- `set ... diameter` recomputes `mass` as a sphere (`pi/6 D^3 rho`). For a cube of density
-  rho the input script must set `mass = rho·D^3` **after** `set ... diameter`.
+- Since 2026-11-18 (R03.11) `set ... density` / `diameter` give the cube mass ρ·D³ directly; an
+  explicit `set ... mass` (as in the existing test inputs) is still allowed and gives the same value.
 
 **Constraint:** L_actual > 0. IF L_actual ≤ 0, error: "characteristic_length must be > 0 for particle <id>"
 
@@ -203,6 +203,19 @@ Known single-shape / cube-specific points (to be resolved with multi-shape suppo
 - `write_restart` / `read_restart` are **not supported** for `atom_style surrogate`
   (shape database not saved; `settings()` fails on restore; `size_restart` / `pack_restart`
   inconsistent). Bug report: `.scratch/surrogate-restart/issues/01-restart-not-supported.md`.
+
+### R03.11: Particle Radius = Bounding Radius (2026-11-18)
+
+- `atom->radius` of a surrogate particle SHALL be the bounding (circumscribed) radius
+  `r_circ · L` of its shape (cube: 0.866 L), as for superquadrics. Neighbour bins, the pair cutoff,
+  ghost cutoffs and primitive-wall neighbour lists then cover the full reach of the particle
+  (corners), with LIGGGHTS default settings.
+- `set ... diameter D` sets `characteristic_length = D`, `radius = r_circ · D`; `set ... density`
+  and `set ... diameter` (with density) set `mass = ρ · k_V · L³` (cube: ρ L³), not a sphere mass.
+- Contact code that needs the inscribed radius L/2 (Hertz `reff`, centre distance) uses
+  `characteristic_length` explicitly (Spec 04).
+- Rationale: with radius = L/2 the default bin size was 5× too small (150 ms vs 43 ms neighbour
+  time for a single particle) and cube–cube corner contacts would be missed by the pair list.
 
 ---
 

@@ -84,6 +84,10 @@ curvature-based reff for SQ; contact-point definition (stopgap) for near-edge/fa
 error handling; sphere tutorial). Default build registers only the sphere test. Update a reference
 only after an intended change (copy the new output.log, note it here).
 
+**Neighbour radius (2026-11-18, Spec 03 R03.11):** surrogate `atom->radius` = bounding radius
+r_circ·L (0.866 L, like superquadrics); `set density/diameter` give cube mass ρL³. Neighbour time
+with default bins 150 → 43 ms (single particle); contact law still uses reff = L/2; ctest unchanged.
+
 **Open (later):**
 4. Multi-shape per simulation (Spec 03 R03.6a/R03.9 table: per-particle shape_key input, model
    registry by shape_key, pair-model paths, per-shape L↔r and volume).

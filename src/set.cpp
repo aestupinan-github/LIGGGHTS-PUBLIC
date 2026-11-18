@@ -842,10 +842,15 @@ void Set::set(int keyword)
 
 #ifdef SURROGATE_ACTIVE_FLAG
          // Surrogate particles (Spec 03, R03.3): characteristic length L = diameter
-         // (cube edge = inscribed-sphere diameter). Kept consistent with radius = L/2,
-         // which fix_wall_gran uses to recover the centre distance from deltan.
-         if(atom->surrogate_flag)
-           atom->characteristic_length[i] = 2.0 * atom->radius[i];
+         // (cube edge). atom->radius = bounding (circumscribed) radius r_circ*L, like
+         // superquadrics, so that neighbour lists, bins, ghost cutoffs and the pair cutoff
+         // see the true reach of the particle (Spec 03 R03.11). The contact code uses L
+         // explicitly where the inscribed radius L/2 is needed.
+         if(atom->surrogate_flag) {
+           atom->characteristic_length[i] = dvalue * force->cg(atom->type[i]);
+           const int key = atom->shape_key[i];
+           atom->radius[i] = atom->surrogate_shape_bounding_radius[key] * atom->characteristic_length[i];
+         }
 #endif
          
         if(atom->rmass_flag && atom->density_flag && atom->density[i] > 0.)
@@ -854,6 +859,13 @@ void Set::set(int keyword)
             double vol = MY_PI/6.0 * dvalue * dvalue * dvalue;
             atom->volume[i] = vol;
           }
+#ifdef SURROGATE_ACTIVE_FLAG
+          else if(atom->surrogate_flag) {
+            // shape volume k_V * L^3 (cube: L^3), not the volume of the bounding sphere
+            const double Lc = atom->characteristic_length[i];
+            atom->rmass[i] = atom->surrogate_shape_volume_factor[atom->shape_key[i]] * Lc*Lc*Lc * atom->density[i];
+          }
+#endif
           else {
           if (domain->dimension == 2)
             atom->rmass[i] = MY_PI * atom->radius[i]*atom->radius[i] * atom->density[i];
@@ -1012,6 +1024,13 @@ void Set::set(int keyword)
       if (atom->radius_flag && atom->radius[i] > 0.0)
       {
           atom->density[i] = dvalue;
+#ifdef SURROGATE_ACTIVE_FLAG
+          if(atom->surrogate_flag) {
+              // surrogate: mass = density * shape volume (k_V L^3), Spec 03 R03.11
+              const double Lc = atom->characteristic_length[i];
+              atom->rmass[i] = atom->surrogate_shape_volume_factor[atom->shape_key[i]] * Lc*Lc*Lc * atom->density[i];
+          } else
+#endif
           if(!atom->superquadric_flag) {
               if (domain->dimension == 2)
                 atom->rmass[i] = MY_PI * atom->radius[i]*atom->radius[i] * atom->density[i]; 

@@ -129,6 +129,8 @@ Request to the surrogate (training) team: `DOCUMENTATION.md/REQUEST_SURROGATE_TE
 - RF-10: THE SYSTEM SHALL evaluate surrogate wall contact whenever the circumscribed sphere
   (`r_circ · L`, r_circ from scalers.dat) is within reach of the wall, for both the neighbour list
   and the contact check (a corner touches with the centre up to 0.866 L away). Resolves EC-4.
+  Since 2026-11-18 this follows directly from `atom->radius = r_circ·L` (Spec 03 R03.11); the
+  contact law keeps the inscribed radius `L/2` as Hertz `reff` (unchanged results).
 
 ### R04.2e: Rigid-Body Motion of Surrogate Particles
 

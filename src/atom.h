@@ -303,6 +303,11 @@ class Atom : protected Pointers {
   /// Per-shape inertia factor k_I (I = k_I * m * L^2), indexed by shape key (Spec 04 R04.2e).
   /// Filled at shape registration from the shape geometry layer (scalers.dat h_exact_method).
   std::vector<double> surrogate_shape_inertia_factor;
+  /// Per-shape bounding (circumscribed) radius / L, indexed by shape key (Spec 03 R03.11);
+  /// atom->radius = this * characteristic_length for surrogate particles.
+  std::vector<double> surrogate_shape_bounding_radius;
+  /// Per-shape volume factor k_V (V = k_V * L^3), indexed by shape key
+  std::vector<double> surrogate_shape_volume_factor;
 #endif
 
  private:

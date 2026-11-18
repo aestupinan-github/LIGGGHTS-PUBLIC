@@ -13,3 +13,4 @@
 - [ ] **BUG (open):** restart not supported — `.scratch/surrogate-restart/issues/01-restart-not-supported.md` (R03.10)
 - [ ] (Phase 3D) multi-shape: per-particle shape_key input, model registry by shape_key, pair-model paths (R03.6a, R03.9)
 - [x] Per-shape inertia factor stored at shape registration (`atom->surrogate_shape_inertia_factor`, from h_exact_method)
+- [x] R03.11: radius = bounding radius r_circ·L; mass = ρ k_V L³ from set density/diameter (2026-11-18); ctest 10/10 unchanged
