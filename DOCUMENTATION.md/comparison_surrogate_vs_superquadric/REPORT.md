@@ -1,6 +1,6 @@
 # Surrogate cube vs superquadric cube — wall-impact comparison
 
-**Date:** 2026-11-18 · **Branch:** `surrogate-shape-dev` · **Status:** numerical verification
+**Date:** 2026-11-18 (case 03b added the same day) · **Branch:** `surrogate-shape-dev` · **Status:** numerical verification
 (no experimental validation) · Intended as input for a publication.
 
 ## 1. Purpose
@@ -21,16 +21,18 @@ same initial position, orientation and spin in both models.
 | Case | Initial orientation (q = qw qx qy qz) | ω₀ (rad/s) | centre height h₀ |
 |---|---|---|---|
 | 03 corner | body diagonal vertical: 0.8881 0.3251 −0.3251 0 | 0 | 0.10 m |
+| 03b corner, tilted | case 03 then 25° about x: 0.7967 0.5096 −0.3174 −0.0704 | 0 | 0.10 m |
 | 04 edge | 45° about x: 0.9239 0.3827 0 0 | 0 | 0.10 m |
 | 05a spin | generic tilt (0.9, 0.3, 0.2, 0.1)/‖·‖ | (50, 30, 0) | 0.02 m |
 | 05b spin | same | (50, 30, 0) | 0.05 m |
 | 05c spin | same | (50, 30, 0) | 0.10 m |
 
-**Surrogate:** inputs `test_cases/surrogate_contact/test_0{3,4,5a,5b,5c}_*.in`; model run_029
+**Surrogate:** inputs `test_cases/surrogate_contact/test_0{3,3b,4,5a,5b,5c}_*.in`; model run_029
 (option4); contact point from the exact cube geometry (Spec 04 R04.2b STOPGAP); cube inertia
 m L²/6; `surface surrogate`.
 
-**Superquadric:** half-axes L/2, blockiness n₁ = n₂ = n ∈ {10, 20, 50, 100, 200, 400, 1000},
+**Superquadric:** half-axes L/2, blockiness n₁ = n₂ = n ∈ {10, 20, 50, 100, 200, 400, 1000}
+(case 03b: n = 1000 only),
 mass and inertia from the SQ shape (density 1000), `fix nve/superquadric integration_scheme 1`,
 `surface superquadric`. Inputs generated from
 `test_cases/superquadric_reference/sq_05c_cube_1cm_spin_h010.in` with the case's height,
@@ -48,7 +50,7 @@ SQ mass = 0.959 g (n=10) … 0.99999 g (n=1000) vs 1.000 g for the sharp cube.
 **Note on the earlier "extrapolated" value.** Spec 04 (2026-11-18, first version) quoted a
 "sharp-corner extrapolation" for case 05c. That was **post-processing** (a linear fit of
 n = 10/20/50 to zero rounding), not a simulation. This report replaces it with **real runs** up
-to n = 1000 (corner rounding 0.001 L) for all five cases.
+to n = 1000 (corner rounding 0.001 L) for all cases.
 
 ## 3. Results
 
@@ -62,6 +64,8 @@ deviations from the surrogate: [`data/deviation_vs_sq.dat`](data/deviation_vs_sq
 | 03 corner | surrogate | 13647 | 16 | −1.339 → +1.211 | 0 | 16.6 % |
 |  | SQ n = 50 | 13661 | 16 | −1.340 → +1.207 | 0 | 17.2 % |
 |  | SQ n = 1000 | 13647 | 17 | −1.339 → +1.200 | 0 | 17.9 % |
+| 03b corner, tilted 25° | surrogate | 13707 | 15 | −1.344 → +0.285 | 227.49 | 39.9 % |
+|  | SQ n = 1000 | 13708 | 14 | −1.345 → +0.300 | 225.23 | 40.1 % |
 | 04 edge | surrogate | 13765 | 17 | −1.350 → +1.213 | 0 | 17.9 % |
 |  | SQ n = 50 | 13772 | 16 | −1.351 → +1.217 | 0 | 17.5 % |
 |  | SQ n = 1000 | 13765 | 17 | −1.350 → +1.212 | 0 | 18.1 % |
@@ -83,6 +87,7 @@ falling and hits again at step ≈ 9537 — identical in both models, see `data/
 | Case | Δ onset (steps) | |Δv_z| after (m/s) | ‖Δω‖ / ‖ω_surr‖ |
 |---|---|---|---|
 | 03 corner | 0 | 0.010 | — (no spin) |
+| 03b corner, tilted | 1 | 0.015 | 1.0 % |
 | 04 edge | 0 | 0.001 | — (no spin) |
 | 05a | 1 | 0.001 | 0.9 % |
 | 05b | 0 | 0.002 | 0.2 % |
@@ -96,7 +101,7 @@ falling and hits again at step ≈ 9537 — identical in both models, see `data/
 `plots/fig01_convergence_first_impact.gp`). Left: |v_z(SQ) − v_z(surrogate)| after the first
 impact vs SQ corner rounding δ_c/L (log–log), all cases. Right: relative ω deviation, spinning
 cases. **Data:** `data/deviation_vs_sq.dat`, one gnuplot index (block) per case in the order
-03, 04, 05a, 05b, 05c; columns `case blockiness corner_round_L |dvz_post| |dw_post| rel_dw |d_onset|`.
+03, 03b (n = 1000 only), 04, 05a, 05b, 05c; columns `case blockiness corner_round_L |dvz_post| |dw_post| rel_dw |d_onset|`.
 
 Observations:
 - The contact onset step converges to the surrogate's exactly (Δ = 0 or 1 step at n = 1000);
@@ -114,6 +119,7 @@ Observations:
 | Figure | File | Data |
 |---|---|---|
 | 3a corner | `plots/fig_c03_corner_first_impact.png` | `data/ts_c03_corner_*.dat` |
+| 3a′ corner tilted 25° | `plots/fig_c03b_corner_tilt25_first_impact.png` | `data/ts_c03b_corner_tilt25_{surrogate,sq_n1000}.dat` |
 | 3b edge | `plots/fig_c04_edge_first_impact.png` | `data/ts_c04_edge_*.dat` |
 | 3c spin 0.02 m | `plots/fig_c05a_spin_h002_first_impact.png` | `data/ts_c05a_spin_h002_*.dat` |
 | 3d spin 0.05 m | `plots/fig_c05b_spin_h005_first_impact.png` | `data/ts_c05b_spin_h005_*.dat` |
@@ -156,8 +162,42 @@ surrogate vs SQ n = 1000. **Data:** column 15 of `data/ts_<case>_*.dat`.
 - In every run (40 runs) `max(E_tot)/E₀ = 1.00000000` (column `max_etot_over_E0` of
   `first_impact_summary.dat`): energy never increases; it drops only during contacts
   (damping, friction).
-- Energy at t = 0.2 s, surrogate vs SQ n = 1000: 0.834 vs 0.821 (corner), 0.821 vs 0.819
+- Energy at t = 0.2 s, surrogate vs SQ n = 1000: 0.834 vs 0.821 (corner), 0.411 vs 0.416 (corner tilted), 0.821 vs 0.819
   (edge), 0.312 vs 0.280 (05a), 0.398 vs 0.274 (05b, late divergence), 0.465 vs 0.458 (05c).
+
+### 3.6 Off-centre corner impact without initial spin (case 03b) — Figure 5
+
+**Question:** a cube that lands on a corner which is *not* directly below its centre should be
+set spinning by the impact (the normal force has a lever arm), even with zero initial spin.
+Case 03 (body diagonal vertical) has zero lever arm; case 03b tilts it by 25° about x, so a
+single corner still touches first, but 0.366 L sideways of the centre (2nd vertex 0.28 L higher).
+
+![Figure 5](plots/fig_c03b_corner_tilt25_first_impact.png)
+
+**Figure 5** — `plots/fig_c03b_corner_tilt25_first_impact.png`: z_c/L, v_z, ω_x and E_rot
+around the first impact, surrogate (black) vs SQ n = 1000 (dashed). **Data:**
+`data/ts_c03b_corner_tilt25_surrogate.dat`, `data/ts_c03b_corner_tilt25_sq_n1000.dat`
+(columns as in Section 3.3; ω_x = column 9, E_rot = column 13).
+
+**Result: the impact spins the cube, as expected.**
+
+| | surrogate | SQ n = 1000 | difference |
+|---|---|---|---|
+| contact onset (step) | 13707 | 13708 | 1 step |
+| v_z before → after (m/s) | −1.344 → +0.285 | −1.345 → +0.300 | 0.015 m/s |
+| ω after impact (rad/s) | (227.49, 0.00, 0.00) | (225.23, 0.04, 0.00) | 1.0 % |
+| E_rot after impact (J) | 4.31e-4 | 4.23e-4 | 2.0 % |
+| energy loss in the impact | 39.9 % | 40.1 % | — |
+| max(E_tot)/E₀ over the run | 1.0 | 1.0 | — |
+
+- The spin axis is x — the tilt axis — and both models agree on it; by symmetry no y/z spin
+  appears (surrogate 7e-13 rad/s, SQ 0.04 rad/s).
+- Compared with case 03 (same drop, no tilt: rebound v_z = +1.211 m/s, ω = 0), about half of
+  the pre-impact kinetic energy is converted into rotation (E_rot ≈ 48 % (surrogate) / 47 % (SQ)
+  of the pre-impact KE) and the
+  rebound speed drops from 1.21 to 0.29 m/s.
+- This is the behaviour that requires the contact point (lever arm) of Spec 04 R04.2b; before
+  the stopgap the surrogate would have produced ω = 0 here.
 
 ## 4. Discussion
 
@@ -183,8 +223,10 @@ expected from model differences, not from the surrogate geometry:
 ## 5. Conclusions
 
 - With real runs up to blockiness 1000, the superquadric reference converges to the surrogate
-  for all five cases: contact onset within 1 step, rebound v_z within 0.001–0.010 m/s,
+  for all six cases: contact onset within 1 step, rebound v_z within 0.001–0.015 m/s,
   post-impact spin within 0.2–1.2 %.
+- An off-centre corner impact without initial spin (case 03b) spins the cube about the tilt
+  axis (227 vs 225 rad/s, surrogate vs SQ n = 1000).
 - Symmetric corner/edge impacts give no spurious spin in either model; restitution ≈ 0.90.
 - Energy is never created in any run.
 - The surrogate's contact geometry (overlap from the ML model, contact point from the exact
@@ -197,7 +239,7 @@ expected from model differences, not from the surrogate geometry:
 
 ```bash
 # surrogate build: build/ (ENABLE_SURROGATE=ON); SQ build from a copy of src/ (see
-# test_cases/superquadric_reference/README.md). Runs: 5 cases × (surrogate + 7 SQ n),
+# test_cases/superquadric_reference/README.md). Runs: 5 cases × (surrogate + 7 SQ n) + case 03b × (surrogate + SQ n=1000),
 # thermo every step, 20 000 steps; then:
 cd DOCUMENTATION.md/comparison_surrogate_vs_superquadric/plots
 for f in fig*.gp; do gnuplot "$f"; done
@@ -214,10 +256,11 @@ repo path); adapt before reuse.
 |---|---|
 | `data/first_impact_summary.dat` | first-impact metrics, all cases × models (header documents columns) |
 | `data/deviation_vs_sq.dat` | SQ − surrogate deviations vs blockiness (one block per case) |
-| `data/ts_<case>_<model>.dat` | time series (40 files) |
+| `data/ts_<case>_<model>.dat` | time series (42 files) |
 | `plots/common.gp` | shared gnuplot settings (run scripts from `plots/`) |
 | `plots/fig01_convergence_first_impact.{gp,png}` | Figure 1 |
 | `plots/fig02_trajectories_full.{gp,png}` | Figure 2 |
 | `plots/fig03_energy.{gp,png}` | Figure 4 |
 | `plots/fig_<case>_first_impact.{gp,png}` | Figures 3a–3e |
+| `plots/fig_c03b_corner_tilt25_first_impact.{gp,png}` | Figure 5 (case 03b) |
 | `scripts/` | Python scripts that generated inputs, runs and data |

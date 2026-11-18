@@ -13,3 +13,4 @@
 - [x] R04.2c: surface model `surface surrogate` (new file `surface_model_surrogate.h`, explicit selection)
 - [x] R04.2e: quaternion integration + cube inertia in fix nve/sphere; `set quat`/`quat_direct`/`quat/random`; `compute erotate/surrogate`
 - [x] Test cases (L = 1 cm): test_03 corner, test_04 edge, test_05a/b/c spinning at 3 heights; regression test_01/02 — reference/ updated
+- [x] test_03b: off-centre corner impact without initial spin (25° tilt) — spin induced, matches SQ n = 1000 within 1 %

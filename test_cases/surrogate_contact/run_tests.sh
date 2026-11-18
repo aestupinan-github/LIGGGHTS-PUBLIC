@@ -162,7 +162,7 @@ if [ "$TEST_NUM" = "0" ] || [ "$TEST_NUM" = "2" ]; then
 fi
 
 # Tilted / spinning cubes (Spec 04 R04.2b-e), L = 1 cm
-for t in 03_cube_1cm_corner 04_cube_1cm_edge 05a_cube_1cm_spin_h002 05b_cube_1cm_spin_h005 05c_cube_1cm_spin_h010; do
+for t in 03_cube_1cm_corner 03b_cube_1cm_corner_tilt25 04_cube_1cm_edge 05a_cube_1cm_spin_h002 05b_cube_1cm_spin_h005 05c_cube_1cm_spin_h010; do
     n=${t%%_*}
     if [ "$TEST_NUM" = "0" ] || [ "$TEST_NUM" = "$n" ]; then
         if ! run_test "$n" "$t" "$TEST_DIR/test_$t.in"; then

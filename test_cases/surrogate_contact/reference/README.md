@@ -18,6 +18,7 @@ writes new runs to `../output/` (git-ignored). Compare a new run against these f
 | test_01c_diagnostic | test_01c_diagnostic.in | 1 m | 1e-4 | 10 | present, rebounding |
 | test_2 | test_02_cube_1cm_falling.in | 0.01 m | 1e-5 | 100 | present, rebounding |
 | test_03_cube_1cm_corner | test_03_cube_1cm_corner.in | 0.01 m | 1e-5 | 100 | present, rebounding |
+| test_03b_cube_1cm_corner_tilt25 | test_03b_cube_1cm_corner_tilt25.in | 0.01 m | 1e-5 | 100 | present, spinning after impact |
 | test_04_cube_1cm_edge | test_04_cube_1cm_edge.in | 0.01 m | 1e-5 | 100 | present, rebounding |
 | test_05a/b/c_cube_1cm_spin_h0xx | test_05[abc]_*.in | 0.01 m | 1e-5 | 50 | present, tumbling |
 
@@ -27,6 +28,8 @@ Key numbers (from the VTK data; see Spec 04 "Validation Results"):
 
 Tilted / spinning cases (Spec 04 R04.2b–e; dense re-runs with VTK every step, see Spec 04):
 - test_03 corner: contact starts when the corner reaches the wall; e = 0.905; |ω| stays 0 (4e-14)
+- test_03b corner tilted 25° about x, no initial spin: impact spins the cube about x, ω = 227 rad/s
+  (superquadric n = 1000: 225 rad/s)
 - test_04 edge: e = 0.898; |ω| stays 0 (6e-14)
 - test_05c: impact on a corner off-centre → torque during the 25 contact steps; total energy never
   rises above its initial value in any case (max(E)/E0 = 1.0)

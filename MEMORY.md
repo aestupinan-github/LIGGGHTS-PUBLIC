@@ -63,6 +63,8 @@ real SQ runs blockiness 10…1000 (40 runs). At n = 1000: onset within 1 step, r
 `DOCUMENTATION.md/comparison_surrogate_vs_superquadric/REPORT.md` (gnuplot figures in `plots/`,
 data in `data/*.dat`, generating scripts in `scripts/`). The earlier "extrapolated sharp corner"
 value in Spec 04 was post-processing, now superseded by these runs.
+Case 03b (corner tilted 25° about x, no initial spin): impact induces ω_x = 227.5 rad/s
+(SQ n = 1000: 225.2), i.e. the contact-point lever arm works; added to report (§3.6, Fig. 5).
 Known model differences to state in a publication: Hertz reff = L/2 for the surrogate vs
 curvature-based reff for SQ; contact-point definition (stopgap) for near-edge/face contacts.
 

@@ -2,8 +2,8 @@ import os,math,glob
 B='/tmp/opencode/cmpw/dense'
 OUT='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/DOCUMENTATION.md/comparison_surrogate_vs_superquadric/data'
 L=0.01
-cases=['test_03_cube_1cm_corner','test_04_cube_1cm_edge','test_05a_cube_1cm_spin_h002','test_05b_cube_1cm_spin_h005','test_05c_cube_1cm_spin_h010']
-short={'test_03_cube_1cm_corner':'c03_corner','test_04_cube_1cm_edge':'c04_edge','test_05a_cube_1cm_spin_h002':'c05a_spin_h002','test_05b_cube_1cm_spin_h005':'c05b_spin_h005','test_05c_cube_1cm_spin_h010':'c05c_spin_h010'}
+cases=['test_03_cube_1cm_corner','test_03b_cube_1cm_corner_tilt25','test_04_cube_1cm_edge','test_05a_cube_1cm_spin_h002','test_05b_cube_1cm_spin_h005','test_05c_cube_1cm_spin_h010']
+short={'test_03_cube_1cm_corner':'c03_corner','test_03b_cube_1cm_corner_tilt25':'c03b_corner_tilt25','test_04_cube_1cm_edge':'c04_edge','test_05a_cube_1cm_spin_h002':'c05a_spin_h002','test_05b_cube_1cm_spin_h005':'c05b_spin_h005','test_05c_cube_1cm_spin_h010':'c05c_spin_h010'}
 models=['surrogate']+['sq_n%d'%n for n in (10,20,50,100,200,400,1000)]
 def load(f):
     rows=[]
@@ -30,7 +30,9 @@ summ.write('# contact window = consecutive steps in which total energy changes (
 summ.write('# columns: case model blockiness corner_round_L onset_step n_steps zc_onset_L vz_pre vz_post wx_post wy_post wz_post wmag_post ke_post erot_post etot_post etot_loss_pct max_etot_over_E0 rebound_ratio\n')
 for c in cases:
     for m in models:
-        f=f'{B}/{c}/{m}/out.log'; r=load(f)
+        f=f'{B}/{c}/{m}/out.log'
+        if not os.path.exists(f): continue
+        r=load(f)
         if not r: print('EMPTY',f); continue
         n=None if m=='surrogate' else int(m.split('n')[1])
         # time series

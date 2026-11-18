@@ -2,7 +2,7 @@
 import math,re,os,sys
 SUR='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/test_cases/surrogate_contact/'
 SQT=open('/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/test_cases/superquadric_reference/sq_05c_cube_1cm_spin_h010.in').read()
-cases=['test_03_cube_1cm_corner','test_04_cube_1cm_edge','test_05a_cube_1cm_spin_h002','test_05b_cube_1cm_spin_h005','test_05c_cube_1cm_spin_h010']
+cases=(sys.argv[4].split(',') if len(sys.argv)>4 else ['test_03_cube_1cm_corner','test_04_cube_1cm_edge','test_05a_cube_1cm_spin_h002','test_05b_cube_1cm_spin_h005','test_05c_cube_1cm_spin_h010'])
 def params(f):
     s=open(SUR+f+'.in').read()
     h=re.search(r'create_atoms\s+1 single 0.0 0.0 (\S+)',s).group(1)

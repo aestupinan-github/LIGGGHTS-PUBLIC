@@ -466,6 +466,7 @@ L = 0.01 m, ρ = 1000 kg/m³, E = 1e9 Pa, ν = 0.25, e = 0.9, μ = 0.2, dt = 1e-
 | Case | Orientation | ω₀ (rad/s) | Contact onset | e | |ω| after | max(E_tot)/E₀ |
 |---|---|---|---|---|---|---|
 | test_03 | corner (body diagonal vertical) | 0 | at z_c = 0.866 L (corner) | 0.905 | 4e-14 | 1.0 |
+| test_03b | corner, tilted 25° about x (lever arm 0.366 L) | 0 | at z_c = 0.785 L | — | 227.5 (spin induced) | 1.0 |
 | test_04 | edge (45° about x) | 0 | at z_c = 0.707 L (edge) | 0.898 | 6e-14 | 1.0 |
 | test_05a | generic tilt | (50, 30, 0) | h₀ = 0.02 m | — | up to 89 | 1.0 |
 | test_05b | generic tilt | (50, 30, 0) | h₀ = 0.05 m | — | up to 186 | 1.0 |
@@ -515,8 +516,9 @@ Trajectory over 20 000 steps (3 bounces): centre height agrees within 0.2 mm (0.
 The superquadric converges to the surrogate as its corners sharpen.
 
 **Superseded by real runs (2026-11-18):** blockiness 10…1000 for all five tilted cases
-(03, 04, 05a/b/c). At n = 1000 (corner rounding 0.001 L): contact onset within 1 step, rebound
-v_z within 0.001–0.010 m/s, post-impact ω within 0.2–1.2 %. Full report with figures and data:
+(03, 04, 05a/b/c) + case 03b (n = 1000). At n = 1000 (corner rounding 0.001 L): contact onset
+within 1 step, rebound v_z within 0.001–0.015 m/s, post-impact ω within 0.2–1.2 %. Case 03b
+(off-centre corner, no initial spin): ω after impact 227.5 (surrogate) vs 225.2 rad/s (SQ). Full report with figures and data:
 `DOCUMENTATION.md/comparison_surrogate_vs_superquadric/REPORT.md`. Total energy never exceeds E₀
 in any run. After the first impact the trajectories diverge (chaotic tumbling: small
 differences in post-impact state grow), e.g. centre height at step 20 000: 3.04 cm (surrogate)
