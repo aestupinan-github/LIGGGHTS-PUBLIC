@@ -12,6 +12,12 @@ E = 1e9 Pa, ν = 0.25, e = 0.9, μ = 0.2, dt = 1e-5 s, same drop height, orienta
 The cube is a superquadric with half-axes L/2 and **blockiness 50**: corners are rounded by
 0.019 L (0.09 L at blockiness 10), mass 0.998 g instead of 1.000 g.
 
+Multi-particle (performance only, comparison report §3.8):
+
+| Input | Matches | Case |
+|---|---|---|
+| `sq_pour_125_cubes.in` | `../surrogate_multi/in.pour_125_cubes` | 125 cubes, 6 walls, blockiness 1000, real SQ cube–cube contact |
+
 ## Build (separate binary; does not touch the surrogate build)
 
 The generated `src/style_*.h` files are shared by every CMake build of the same source tree,

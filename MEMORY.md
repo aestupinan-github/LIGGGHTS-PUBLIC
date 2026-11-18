@@ -97,8 +97,17 @@ radius) until a cube–cube surrogate exists (Spec 04 R04.7). Serial: no lost pa
 gain; np2 identical, np4 identical to ~1e-11 then chaotic round-off growth. In ctest.
 Bugs found and fixed: `AtomVecSurrogate::grow()` never grew arrays (segfault with >1 particle);
 `PairGranBase` left the contact normal uninitialised for surrogate + `surface default` (energy gain).
+**TODO (remove with Spec 04 R04.7):** the `pair_gran_base.h` normal fix is TEMPORARY, tied to the
+sphere placeholder; remove it when the cube–cube surrogate exists (Spec 04 tasks; code marker
+`PLACEHOLDER (Spec 04 R04.7)`). The `grow()` fix is permanent.
+
+**125-cube performance vs SQ (report §3.8, Fig. 7):** wall contact same order (1.6 vs 1.0–2.5 s);
+totals 1.7 vs 20.5 s NOT comparable (SQ real cube–cube contact = 85 %, surrogate placeholder).
+Re-measure once the cube–cube surrogate exists.
 
 **Open (later):**
+3b. TEMPORARY sphere placeholder for cube–cube contact + its `pair_gran_base.h` normal fix —
+   remove together with Spec 04 R04.7 (cube–cube surrogate).
 4. Multi-shape per simulation (Spec 03 R03.6a/R03.9 table: per-particle shape_key input, model
    registry by shape_key, pair-model paths, per-shape L↔r and volume).
 5. Anisotropic-inertia shapes need a body-frame integrator (Spec 04 R04.2e).

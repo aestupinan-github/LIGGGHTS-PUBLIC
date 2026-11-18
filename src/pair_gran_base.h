@@ -397,9 +397,12 @@ public:
           
           if(atom->sphere_flag
 #ifdef SURROGATE_ACTIVE_FLAG
-             // surrogate particles with 'surface default' (sphere placeholder for cube-cube
-             // contact, Spec 04 R04.7) need the sphere normal too; without it en stayed
-             // uninitialised -> wrong force direction and energy gain (fixed 2026-11-18)
+             // PLACEHOLDER (Spec 04 R04.7) -- TEMPORARY, REMOVE when a surrogate cube-cube
+             // (shape-shape) contact model exists: surrogate particles currently collide with
+             // each other through 'surface default' (spheres of the bounding radius) and need
+             // the sphere normal here; without it en stayed uninitialised -> wrong force
+             // direction and energy gain (found 2026-11-18). The real shape-shape model must
+             // set the contact normal itself (as surface superquadric does).
              || atom->surrogate_flag
 #endif
             ) {

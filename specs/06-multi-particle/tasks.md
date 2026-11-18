@@ -13,4 +13,8 @@ Completed (2026-11-18)
     (~1e-11) growth from a different reduction order, max |Δz_c| 1.9e-6 m, |ΔE| 1.1e-5 J at
     30 000 steps (chaotic many-body dynamics). Same seen with pair contacts switched off.
 - [x] **T5. CTest regression `surrogate_regression_pour_125_cubes`.** RF-5
-- [ ] **T6. (future)** Replace the placeholder pair contact by a surrogate cube–cube model (Spec 04 R04.7).
+- [x] **T5b. Performance vs superquadric (report §3.8, Fig. 7).** Superquadric twin input
+  `test_cases/superquadric_reference/sq_pour_125_cubes.in`; serial: surrogate 1.73 s, SQ 20.51 s
+  (85 % SQ cube–cube contact), SQ + sphere pair 1.52 s; wall contact 1.58 vs 0.99–2.53 s.
+- [ ] **T6. (future)** Replace the placeholder pair contact by a surrogate cube–cube model (Spec 04 R04.7)
+  and remove the temporary normal fix in `src/pair_gran_base.h` (`PLACEHOLDER (Spec 04 R04.7)`).

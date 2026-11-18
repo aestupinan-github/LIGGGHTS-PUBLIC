@@ -241,6 +241,11 @@ if(atom->surrogate_flag && deltan > 0.0) {
 
 **Status:** Exploratory; no prior art; design deferred pending Phase 3C validation
 
+**Current placeholder (2026-11-18, TEMPORARY):** multi-particle runs use `pair_style gran ...
+surface default`, i.e. cube–cube contacts as spheres of the bounding radius. A code change in
+`src/pair_gran_base.h` (marked `PLACEHOLDER (Spec 04 R04.7)`) sets the sphere contact normal for
+surrogate particles; it MUST be removed when the shape-shape model exists (Spec 04 tasks).
+
 ### R04.8: Mesh Walls (Future)
 
 **Currently:** Surrogate models only primitive walls (planes, cylinders)

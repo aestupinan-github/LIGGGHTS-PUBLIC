@@ -26,6 +26,8 @@ Box 0.12 × 0.12 × 0.20 m, 6 `wall/gran ... surface surrogate` planes; 5×5×5 
 2. `PairGranBase::compute_force` set the sphere contact normal `sidata.en` only for
    `atom_style sphere`; for surrogate particles with `surface default` it stayed uninitialised →
    wrong force direction, energy gain (two cubes stuck together instead of bouncing). Fixed
-   (dual-guarded `|| atom->surrogate_flag`).
+   (dual-guarded `|| atom->surrogate_flag`). **TEMPORARY** — belongs to the sphere placeholder and
+   must be removed with Spec 04 R04.7 (see Spec 04 tasks, code marker `PLACEHOLDER (Spec 04 R04.7)`).
+   Fix 1 (`grow()`) is permanent.
 3. First input versions placed cubes inside walls / overlapping each other (lattice offsets),
    which injects energy at step 0. Fixed by the NR-1 geometry.

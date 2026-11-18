@@ -282,6 +282,66 @@ columns documented in the header); raw per-repeat timings: `data/timing_raw_warm
    stable (≤ 0.2 ms). The machine was shared (load ≈ 3.5 on 32 cores); runs were sequential and
    pinned to one core.
 
+### 3.8 Execution performance, 125 particles — Figure 7
+
+**Purpose.** Performance only; results (trajectories, packing) are **not** compared here.
+**Setup.** Multi-particle case of Spec 06: 125 cubes (L = 1 cm, random orientations, same seeds),
+closed box of 6 primitive walls, 30 000 steps, dt = 1e-5 s, no dumps, `modify_timing verbose`;
+serial runs pinned to one core, `OMP_NUM_THREADS=1`, 3 repeats (std ≤ 0.012 s); same machine
+as 3.7. Inputs: `test_cases/surrogate_multi/in.pour_125_cubes` (surrogate, batched model calls,
+Spec 04 R04.2f) and `test_cases/superquadric_reference/sq_pour_125_cubes.in` (SQ n = 1000).
+Script: `scripts/run_perf_125.sh`.
+
+Cube–cube contact is **not the same** in the two inputs: the surrogate has no cube–cube model yet
+and uses a sphere PLACEHOLDER (bounding radius, `surface default`, Spec 04 R04.7), while the SQ
+input uses the real superquadric shape contact. A third run, *SQ n = 1000 + sphere pair*, uses
+the same placeholder on the SQ side so that wall contact and integration can be compared with
+identical pair treatment.
+
+![Figure 7](plots/fig07_execution_time_125cubes.png)
+
+**Figure 7** — `plots/fig07_execution_time_125cubes.png` (script
+`plots/fig07_execution_time_125cubes.gp`): serial loop time per run, stacked by component.
+**Data:** `data/timing_125cubes.dat` (means), raw: `data/timing_raw_125cubes.dat`
+(columns `variant np rep loop pair neigh comm wall integrate`, s).
+
+**Serial, s per 30 000 steps (mean of 3):**
+
+| Variant | loop | wall contact (6 fixes) | pair (cube–cube) | integrator | rest |
+|---|---|---|---|---|---|
+| surrogate (batched) + sphere pair | **1.73** | 1.58 | 0.06 | 0.06 | 0.03 |
+| SQ n = 1000 + SQ pair (real shape contact) | **20.51** | 2.53 | 17.52 | 0.44 | 0.03 |
+| SQ n = 1000 + sphere pair (same placeholder) | **1.52** | 0.99 | 0.14 | 0.37 | 0.02 |
+| *surrogate, unbatched (before R04.2f)* | *17.47* | *17.32* | – | – | – |
+
+- **Wall contact:** batched surrogate 1.58 s vs SQ 0.99–2.53 s, i.e. the same order. The SQ value
+  depends on how many wall contacts occur, and that number differs between the runs because the
+  trajectories differ (different pair model, different dynamics). Contacts were not counted, so
+  no per-contact cost is given here. Without batching the surrogate needed 17.3 s (≈ 7–17× SQ),
+  so batching is what makes the surrogate competitive with many particles.
+- **Particle–particle contact dominates the real SQ run:** 17.5 s of 20.5 s (85 %) is
+  superquadric cube–cube contact. The surrogate run does not have this cost yet; its 0.06 s is the
+  sphere placeholder. **The total-loop comparison (1.73 vs 20.51 s) is therefore not a fair
+  surrogate-vs-SQ result** — it will change once a cube–cube surrogate exists (Spec 04 R04.7),
+  whose cost per pair contact is still unknown.
+- **Integrator:** surrogate `nve/sphere` with isotropic inertia 0.06 s vs `nve/superquadric`
+  0.37–0.44 s (full inertia tensor, symplectic scheme), ≈ 6–7×.
+- With the same placeholder pair on both sides, the totals are close: surrogate 1.73 s vs SQ 1.52 s
+  (surrogate 13 % slower; the wall-contact time is higher, the integrator cheaper).
+
+**MPI (1 repeat each, loop time, s):**
+
+| ranks (grid) | surrogate | SQ n = 1000 + SQ pair |
+|---|---|---|
+| 1 | 1.72 | 20.51 |
+| 2 (1×1×2) | 1.75 | 20.49 |
+| 4 (1×2×2) | 1.42 | 12.69 |
+
+- 2 ranks give no speed-up for **either** model: the domain is cut in z, and after the cubes
+  settle all of them are in the lower half, so one rank does all the work (load imbalance, not a
+  surrogate effect). 4 ranks also split in y: 1.2× (surrogate), 1.6× (SQ). Better scaling would
+  need `balance`/`fix balance` or more particles; not part of this test.
+
 ## 4. Discussion
 
 Remaining differences between the sharp surrogate cube and the n = 1000 superquadric are
@@ -319,7 +379,12 @@ expected from model differences, not from the surrogate geometry:
   14.8 µs per LibTorch forward pass, plus a one-off ≈ 16 ms warm-up); in single-particle runs the
   total loop time is similar (surrogate 15–22 % faster for short contacts, 5 % slower for a long
   contact) because neighbour bookkeeping dominates.
-- Limits: numerical comparison only, single size (L = 1 cm), one material, wall contacts only,
+- Performance with 125 particles (3.8): with batched model calls the surrogate wall contact is of
+  the same order as SQ (1.6 s vs 1.0–2.5 s per 30 000 steps; unbatched it was 17.3 s). Whole-run
+  times (1.7 s vs 20.5 s) are not yet comparable: 85 % of the SQ run is superquadric cube–cube
+  contact, which the surrogate replaces by a sphere placeholder until a cube–cube surrogate exists.
+- Limits: numerical comparison only, single size (L = 1 cm), one material, wall contacts only
+  (cube–cube only as a sphere placeholder in 3.8),
   contact point still from the LIGGGHTS stopgap (Spec 04 R04.2b), no experiments.
 
 ## 6. Reproduction
@@ -331,6 +396,9 @@ expected from model differences, not from the surrogate geometry:
 cd DOCUMENTATION.md/comparison_surrogate_vs_superquadric/plots
 for f in fig*.gp; do gnuplot "$f"; done
 ```
+125-cube performance (3.8): `scripts/run_perf_125.sh > data/timing_raw_125cubes.dat`
+(≈ 3 min), then the means in `data/timing_125cubes.dat` and `gnuplot fig07_execution_time_125cubes.gp`.
+
 Scripts used to generate the runs and data (kept for reference): `scripts/` in this folder
 (`make_sq.py` inputs, `make_runs.py`/`make_runs2.py` per-step thermo, `run1.sh` one run,
 `extract.py` → `first_impact_summary.dat` + time series, `dev.py` → `deviation_vs_sq.dat`,
@@ -354,4 +422,7 @@ repo path); adapt before reuse.
 | `data/timing_summary.dat`, `data/timing_plot.dat` | timing breakdown (cold/warm), plot table |
 | `data/timing_raw_warm.dat`, `data/timing_raw_default_bins.dat` | raw per-repeat timings |
 | `scripts/run_perf.sh`, `scripts/run_warm.sh`, `scripts/bench_torch_call.cpp` | timing scripts, LibTorch micro-benchmark |
+| `plots/fig07_execution_time_125cubes.{gp,png}` | Figure 7 (performance, 125 cubes) |
+| `data/timing_125cubes.dat`, `data/timing_raw_125cubes.dat` | 125-cube timings (mean, raw incl. MPI) |
+| `scripts/run_perf_125.sh` | 125-cube timing runs (surrogate, SQ, SQ + sphere pair; np 1/2/4) |
 | `scripts/` | Python scripts that generated inputs, runs and data |
