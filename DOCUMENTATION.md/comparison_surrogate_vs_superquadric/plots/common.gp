@@ -12,4 +12,7 @@ set style line 4 lc rgb "#bcbd22" lw 1.5
 set style line 5 lc rgb "#2ca02c" lw 1.5
 set style line 6 lc rgb "#17becf" lw 1.5
 set style line 7 lc rgb "#1f77b4" lw 1.5
-set style line 8 lc rgb "#9467bd" lw 2 dt 2
+set style line 8 lc rgb "#9467bd" lw 2.5 dt (8,6)
+# reference curve drawn ON TOP of the surrogate in two-model figures (SQ n = 1000)
+set style line 9 lc rgb "#e6550d" lw 2.5 dt (8,6)
+set style line 10 lc rgb "#1f77b4" lw 2

@@ -128,7 +128,7 @@ Observations:
 ![Figure 3e](plots/fig_c05c_spin_h010_first_impact.png)
 
 **Figure 3e (example)** — centre height z_c/L, v_z and ‖ω‖ around the first impact of case 05c;
-surrogate in black, SQ n = 10 … 1000 coloured (n = 1000 dashed). The SQ curves move toward the
+surrogate in black (drawn first), SQ n = 10 … 1000 coloured on top (n = 1000 purple dashed). The SQ curves move toward the
 surrogate as n grows; n = 1000 is close to the surrogate in all three panels.
 
 **Time-series data files** `data/ts_<case>_<model>.dat`, `<model>` ∈ {surrogate, sq_n10, …, sq_n1000}.
@@ -140,8 +140,8 @@ Sampling: every step within ±200 steps of any contact, every 10th step elsewher
 
 ![Figure 2](plots/fig02_trajectories_full.png)
 
-**Figure 2** — `plots/fig02_trajectories_full.png`: centre height over 0.2 s, surrogate vs SQ
-n = 1000, all cases. **Data:** `data/ts_<case>_surrogate.dat`, `data/ts_<case>_sq_n1000.dat`
+**Figure 2** — `plots/fig02_trajectories_full.png`: centre height over 0.2 s, surrogate (black)
+vs SQ n = 1000 (orange dashed, on top), all cases. **Data:** `data/ts_<case>_surrogate.dat`, `data/ts_<case>_sq_n1000.dat`
 (column 2 time, column 5 z_c).
 
 - Maximum |Δz_c| over the whole run: 0.007 L (edge), 0.05–0.08 L (corner and spinning cases).
@@ -157,7 +157,7 @@ n = 1000, all cases. **Data:** `data/ts_<case>_surrogate.dat`, `data/ts_<case>_s
 ![Figure 4](plots/fig03_energy.png)
 
 **Figure 4** — `plots/fig03_energy.png`: E_tot / E₀ = (KE + E_rot + E_pot)/E₀ vs time,
-surrogate vs SQ n = 1000. **Data:** column 15 of `data/ts_<case>_*.dat`.
+surrogate (black) vs SQ n = 1000 (orange dashed, on top). **Data:** column 15 of `data/ts_<case>_*.dat`.
 
 - In every run (40 runs) `max(E_tot)/E₀ = 1.00000000` (column `max_etot_over_E0` of
   `first_impact_summary.dat`): energy never increases; it drops only during contacts
@@ -175,9 +175,16 @@ single corner still touches first, but 0.366 L sideways of the centre (2nd verte
 ![Figure 5](plots/fig_c03b_corner_tilt25_first_impact.png)
 
 **Figure 5** — `plots/fig_c03b_corner_tilt25_first_impact.png`: z_c/L, v_z, ω_x and E_rot
-around the first impact, surrogate (black) vs SQ n = 1000 (dashed). **Data:**
+around the first impact, surrogate (black, solid) vs SQ n = 1000 (orange dashed, drawn on top
+so that it stays visible where the two curves coincide), plus a bottom panel with the
+differences Δv_z (left axis) and Δω_x (right axis), surrogate − SQ. **Data:**
 `data/ts_c03b_corner_tilt25_surrogate.dat`, `data/ts_c03b_corner_tilt25_sq_n1000.dat`
-(columns as in Section 3.3; ω_x = column 9, E_rot = column 13).
+(columns as in Section 3.3; ω_x = column 9, E_rot = column 13; the difference panel joins the
+two files on the step column).
+
+The curves overlap almost everywhere (Δv_z ≤ 0.1 m/s and Δω_x ≤ 16 rad/s only during the
+~15 contact steps, then 0.015 m/s and 2.3 rad/s after the impact), which is why the reference
+curve must be drawn on top.
 
 **Result: the impact spins the cube, as expected.**
 
