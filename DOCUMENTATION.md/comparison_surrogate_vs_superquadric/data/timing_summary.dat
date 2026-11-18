@@ -1,0 +1,28 @@
+# Execution-time comparison, surrogate vs superquadric n = 1000 (case inputs as in the report, thermo
+# every 1000 steps, no dumps). 20 000 steps, 1 particle, 1 core (taskset -c 2), OMP_NUM_THREADS=1,
+# Release -O3, Intel i9-14900K, 5 repeats. Both models with neigh_modify binsize 0.0092 (same bin grid).
+# Each process runs the case twice: run 1 = cold (includes LibTorch first-call warm-up),
+# run 2 = identical re-run in the same process (warm, steady state). Times in ms, mean (std of 5).
+# wall = fix wall/gran (contact geometry + contact law), chist = fix contacthistory (pair history; SQ only
+# non-zero), integ = fix nve/sphere (surrogate) or nve/superquadric (SQ).
+# columns: idx case model run loop loop_std neigh wall wall_std integ chist pair comm+output+other_and_small_fixes surrogate_model_calls
+0 03_corner surrogate 1 69.481 0.200 42.015 19.555 0.122 1.180 0.537 1.310 4.884 15
+0 03_corner sq_n1000 1 64.102 2.245 43.144 1.261 0.053 2.958 10.334 1.773 4.632 0
+1 03b_corner_tilt25 surrogate 1 85.307 0.437 42.103 35.042 0.417 1.299 0.570 1.392 4.901 1071
+1 03b_corner_tilt25 sq_n1000 1 65.841 0.374 43.126 2.782 0.022 3.264 10.393 1.751 4.526 0
+2 04_edge surrogate 1 73.163 0.192 41.945 23.278 0.188 1.192 0.554 1.338 4.855 265
+2 04_edge sq_n1000 1 66.456 6.273 45.313 1.584 0.026 2.969 10.235 1.763 4.592 0
+3 05c_spin_h010 surrogate 1 75.110 0.542 42.033 24.859 0.480 1.477 0.546 1.310 4.886 367
+3 05c_spin_h010 sq_n1000 1 67.707 5.554 45.343 1.988 0.039 3.740 10.210 1.746 4.680 0
+
+
+4 03_corner surrogate 2 53.412 0.218 41.962 3.551 0.111 1.181 0.534 1.313 4.870 15
+4 03_corner sq_n1000 2 65.024 4.528 44.018 1.267 0.074 2.964 10.337 1.784 4.654 0
+5 03b_corner_tilt25 surrogate 2 69.458 0.222 42.219 19.172 0.132 1.296 0.574 1.324 4.874 1071
+5 03b_corner_tilt25 sq_n1000 2 65.743 0.523 43.131 2.780 0.017 3.185 10.300 1.753 4.594 0
+6 04_edge surrogate 2 57.071 0.152 41.922 7.232 0.074 1.192 0.551 1.338 4.836 265
+6 04_edge sq_n1000 2 66.437 6.262 45.293 1.582 0.026 2.963 10.263 1.762 4.574 0
+7 05c_spin_h010 surrogate 2 58.942 0.161 42.000 8.766 0.044 1.472 0.542 1.307 4.855 367
+7 05c_spin_h010 sq_n1000 2 67.630 6.010 45.432 1.984 0.041 3.737 10.151 1.747 4.580 0
+
+

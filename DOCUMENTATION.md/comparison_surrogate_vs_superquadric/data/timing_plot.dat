@@ -1,0 +1,6 @@
+# Plot table from timing_summary.dat (ms per 20 000 steps). WARM = run 2, COLD = run 1.
+# columns: idx case calls S_loop_w S_wall_w S_rest_w Q_loop_w Q_wall_w Q_rest_w S_loop_c S_wall_c Q_loop_c Q_wall_c S_wall_per_call_us_w
+0 03_corner 15 53.412 3.551 49.861 65.024 1.267 63.757 69.481 19.555 64.102 1.261 236.73
+1 03b_corner_tilt25 1071 69.458 19.172 50.286 65.743 2.780 62.963 85.307 35.042 65.841 2.782 17.90
+2 04_edge 265 57.071 7.232 49.839 66.437 1.582 64.855 73.163 23.278 66.456 1.584 27.29
+3 05c_spin_h010 367 58.942 8.766 50.176 67.630 1.984 65.646 75.110 24.859 67.707 1.988 23.89

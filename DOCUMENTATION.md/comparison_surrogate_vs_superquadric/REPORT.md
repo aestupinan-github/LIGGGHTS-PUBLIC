@@ -206,6 +206,79 @@ curve must be drawn on top.
 - This is the behaviour that requires the contact point (lever arm) of Spec 04 R04.2b; before
   the stopgap the surrogate would have produced ω = 0 here.
 
+### 3.7 Execution performance — Figure 6
+
+**Setup.** Four cases (03 corner, 03b corner tilted 25°, 04 edge, 05c spinning), surrogate vs
+SQ n = 1000, same inputs as above but thermo every 1000 steps and no dumps; 20 000 steps,
+1 particle; 1 core (`taskset -c 2`), `OMP_NUM_THREADS=1`, Release `-O3`, Intel i9-14900K;
+5 repeats each. Times are LIGGGHTS' own timers (`modify_timing verbose`). Each process runs the
+case **twice** (`run`, reset particle, `run`): run 1 = *cold* (includes the LibTorch first-call
+warm-up), run 2 = identical *warm* re-run in the same process (steady state, what a long
+simulation sees). Both models use `neigh_modify binsize 0.0092` (see note 1 below).
+
+![Figure 6](plots/fig06_execution_time.png)
+
+**Figure 6** — `plots/fig06_execution_time.png` (script `plots/fig06_execution_time.gp`).
+Left: loop time per run, split into the wall-contact fix (`fix wall/gran`: contact geometry +
+contact law; dark) and the rest (light); warm surrogate (grey/black), SQ (orange), cold surrogate
+total (blue cross). Right: wall-contact fix time vs number of surrogate model calls per run, with
+linear fits. **Data:** `data/timing_plot.dat` (columns `idx case calls S_loop_w S_wall_w S_rest_w
+Q_loop_w Q_wall_w Q_rest_w S_loop_c S_wall_c Q_loop_c Q_wall_c S_wall_per_call_us_w`, ms);
+full breakdown per run with std-devs: `data/timing_summary.dat` (block 0 = cold, block 1 = warm;
+columns documented in the header); raw per-repeat timings: `data/timing_raw_warm.dat`
+(and `data/timing_raw_default_bins.dat` for note 1).
+
+**Wall-contact fix (the part that differs), warm, ms per 20 000 steps:**
+
+| Case | surrogate model calls | surrogate | SQ n = 1000 | ratio |
+|---|---|---|---|---|
+| 03 corner | 15 | 3.55 | 1.27 | 2.8× |
+| 03b corner tilted | 1071 | 19.17 | 2.78 | 6.9× |
+| 04 edge | 265 | 7.23 | 1.58 | 4.6× |
+| 05c spin | 367 | 8.77 | 1.98 | 4.4× |
+
+- Surrogate wall-fix cost ≈ **3.3 ms + 14.8 µs per model call** (fit, R² ≈ 1). The 14.8 µs is
+  one LibTorch forward pass of the 128-64-32-16 network (batch 1, float32, CPU); a standalone
+  micro-benchmark gives 14.1 µs per call, of which the exact analytic part (h_exact + contact
+  point) is only 0.03 µs. The SQ contact evaluation costs ≈ 1.5–2 µs per contact step.
+  → **Per contact evaluation the superquadric is ≈ 7–10× faster than the surrogate.**
+- Cold runs add a constant **≈ 16 ms** (LibTorch first-call warm-up: 22 ms + 1.8 ms for the
+  first two calls in the micro-benchmark), i.e. cold wall-fix ≈ 19.4 ms + 14.6 µs/call.
+
+**Whole simulation loop, warm, ms per 20 000 steps (mean ± std of 5):**
+
+| Case | surrogate | SQ n = 1000 | ratio SQ/surrogate |
+|---|---|---|---|
+| 03 corner | 53.4 ± 0.2 | 65.0 ± 4.5 | 1.22 |
+| 03b corner tilted | 69.5 ± 0.2 | 65.7 ± 0.5 | 0.95 |
+| 04 edge | 57.1 ± 0.2 | 66.4 ± 6.3 | 1.16 |
+| 05c spin | 58.9 ± 0.2 | 67.6 ± 6.0 | 1.15 |
+
+- In these single-particle runs the total is dominated by neighbour-list rebuilds (~42 ms,
+  `check no delay 0` → rebuild every step, identical for both). The SQ run carries ~10 ms of
+  `fix contacthistory` (pair-history bookkeeping of the superquadric surface model) and a more
+  expensive integrator (2.9–3.7 vs 1.2–1.5 ms); the surrogate carries the model calls. Net:
+  the surrogate is 15–22 % faster overall when contacts are short (03, 04, 05c) and 5 % slower
+  when the particle stays in contact for long (03b: 1071 calls).
+- **Expectation "SQ faster" is confirmed for the contact computation itself** (7–10× per
+  evaluation), **not for the whole run** in this single-particle test, because the contact is
+  a small fraction of the total and SQ has other fixed overheads.
+
+**Notes.**
+1. *Neighbour bins.* With LIGGGHTS' default bin size (0.5·cutneighmax), the surrogate's
+   neighbour radius L/2 gives ~5× more (empty) bins than the SQ bounding radius 0.866·L, which
+   made the surrogate's neighbour build ≈ 150 ms vs 42 ms (loop 178–205 ms vs 63–65 ms,
+   `data/timing_raw_default_bins.dat`). This is a bookkeeping artefact of a large empty box with
+   one particle, not contact cost, so the comparison above fixes both to the same bin size.
+   For production runs `neigh_modify binsize` (or the bounding radius as neighbour radius)
+   should be considered for surrogate particles.
+2. *Scaling with particle count.* The model cost is per wall contact, so in dense systems the
+   ~15 µs per evaluation will dominate; batching all contacts of a step into one forward pass
+   (one tensor of size N) would amortise the per-call overhead — not implemented yet.
+3. *Variance.* SQ runs show occasional slow repeats (std up to 6 ms); surrogate runs are
+   stable (≤ 0.2 ms). The machine was shared (load ≈ 3.5 on 32 cores); runs were sequential and
+   pinned to one core.
+
 ## 4. Discussion
 
 Remaining differences between the sharp surrogate cube and the n = 1000 superquadric are
@@ -239,6 +312,10 @@ expected from model differences, not from the surrogate geometry:
 - The surrogate's contact geometry (overlap from the ML model, contact point from the exact
   cube geometry, stopgap) therefore reproduces native superquadric contact dynamics for a
   sharp cube, at L = 1 cm.
+- Performance: per contact evaluation the superquadric is ≈ 7–10× faster (≈ 1.5–2 µs vs
+  14.8 µs per LibTorch forward pass, plus a one-off ≈ 16 ms warm-up); in single-particle runs the
+  total loop time is similar (surrogate 15–22 % faster for short contacts, 5 % slower for a long
+  contact) because neighbour bookkeeping dominates.
 - Limits: numerical comparison only, single size (L = 1 cm), one material, wall contacts only,
   contact point still from the LIGGGHTS stopgap (Spec 04 R04.2b), no experiments.
 
@@ -270,4 +347,8 @@ repo path); adapt before reuse.
 | `plots/fig03_energy.{gp,png}` | Figure 4 |
 | `plots/fig_<case>_first_impact.{gp,png}` | Figures 3a–3e |
 | `plots/fig_c03b_corner_tilt25_first_impact.{gp,png}` | Figure 5 (case 03b) |
+| `plots/fig06_execution_time.{gp,png}` | Figure 6 (performance) |
+| `data/timing_summary.dat`, `data/timing_plot.dat` | timing breakdown (cold/warm), plot table |
+| `data/timing_raw_warm.dat`, `data/timing_raw_default_bins.dat` | raw per-repeat timings |
+| `scripts/run_perf.sh`, `scripts/run_warm.sh`, `scripts/bench_torch_call.cpp` | timing scripts, LibTorch micro-benchmark |
 | `scripts/` | Python scripts that generated inputs, runs and data |
