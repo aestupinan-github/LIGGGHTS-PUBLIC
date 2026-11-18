@@ -1,0 +1,60 @@
+# sq_05c_cube_1cm_spin_h010.in: SUPERQUADRIC reference for the surrogate cube -- Spinning, generic tilt, h = 0.10 m (matches test_05c_cube_1cm_spin_h010.in)
+#
+# Same setup as the surrogate case (L = 1 cm cube, rho = 1000, Hertz, e = 0.9, mu = 0.2,
+# dt = 1e-5, same drop height, orientation and spin), with the cube represented as a
+# superquadric: half-axes L/2 and blockiness n1 = n2 = 50 (cube with slightly rounded
+# edges/corners; corner rounding 0.019 L at n = 50). Requires a build with -DENABLE_SQ=ON -DENABLE_MODEL_SURFACE_SUPERQUADRIC=ON.
+#
+# Expected differences to the surrogate: rounded corners (contact starts a little later,
+# softer), inertia from the true rounded shape (slightly below m L^2 / 6), mass rho*V(n).
+
+units           si
+atom_style      superquadric
+atom_modify     map array
+dimension       3
+boundary        f f f
+newton          off
+communicate     single vel yes
+
+region          domain block -0.1 0.1 -0.1 0.1 0.0 0.2 units box
+create_box      1 domain
+
+create_atoms    1 single 0.0 0.0 0.1
+
+# Order matters: shape/blockiness/density define volume, mass and inertia;
+# quat must precede omega (set omega* converts to angular momentum with quat + inertia).
+set             atom * shape 0.005 0.005 0.005 blockiness 50 50 density 1000
+set             atom * quat_direct 0.923380516876639 0.307793505625546 0.205195670417031 0.102597835208515
+set             atom * omegax 50 omegay 30 omegaz 0
+
+fix             m1 all property/global youngsModulus peratomtype 1.0e9
+fix             m2 all property/global poissonsRatio peratomtype 0.25
+fix             m3 all property/global coefficientRestitution peratomtypepair 1 0.9
+fix             m4 all property/global coefficientFriction peratomtypepair 1 0.2
+
+fix             integrate all nve/superquadric integration_scheme 1
+fix             gravity all gravity 9.81 vector 0.0 0.0 -1.0
+
+fix             wall all wall/gran model hertz tangential history surface superquadric primitive type 1 zplane 0.0
+pair_style      gran model hertz tangential history surface superquadric
+pair_coeff      * *
+
+neigh_modify    check no delay 0
+timestep        0.00001
+
+compute         ke all ke
+compute         erot all erotate/superquadric
+variable        epot equal mass(all)*9.81*xcm(all,z)
+variable        etot equal c_ke+c_erot+v_epot
+variable        zc equal xcm(all,z)
+variable        m equal mass(all)
+thermo          100
+thermo_style    custom step atoms v_zc c_ke c_erot v_epot v_etot
+thermo_modify   format float %.10g
+run             0
+print           "SQ mass = ${m} kg"
+
+shell           mkdir post
+dump            dmpvtk all custom/vtk 50 post/sq_05c_*.vtk id type x y z vx vy vz fx fy fz omegax omegay omegaz tqx tqy tqz radius mass shapex shapey shapez blockiness1 blockiness2 quat1 quat2 quat3 quat4
+
+run             20000

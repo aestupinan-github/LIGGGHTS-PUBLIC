@@ -485,3 +485,39 @@ With the unit normal, test_01c gives e = 0.900 (was 0.899) and max penetration 0
 
 Numerical verification only. The dynamics of the tumbling cases are not compared with an
 independent reference yet.
+
+## Validation against superquadric reference (2026-11-18)
+
+Independent reference: native LIGGGHTS superquadric (half-axes L/2, blockiness n) with the same
+setup (`test_cases/superquadric_reference/`, separate SQ build). Contact phase re-run with VTK
+every step.
+
+**Edge down, no spin (test_04 vs sq_04):**
+
+| | contact steps | vz in → out (m/s) | vz ratio | spin after |
+|---|---|---|---|---|
+| surrogate | 17 | −1.350 → +1.213 | 0.898 | 0 |
+| SQ n = 10 | 16 | −1.354 → +1.217 | 0.899 | 0 |
+| SQ n = 50 | 16 | −1.351 → +1.217 | 0.901 | 0 |
+
+Trajectory over 20 000 steps (3 bounces): centre height agrees within 0.2 mm (0.02 L).
+
+**Generic tilt, ω₀ = (50, 30, 0) rad/s, first impact (test_05c vs sq_05c):**
+
+| | corner rounding / L | contact steps | rebound vz (m/s) | ω after (rad/s) | ‖ω‖ |
+|---|---|---|---|---|---|
+| SQ n = 10 | 0.090 | 15 | +0.355 | (217.3, −76.4, −15.5) | 230.8 |
+| SQ n = 20 | 0.046 | 15 | +0.180 | (225.6, −88.1, −16.7) | 242.7 |
+| SQ n = 50 | 0.019 | 14 | +0.079 | (228.5, −94.5, −17.3) | 247.9 |
+| SQ → sharp (linear extrapolation) | 0 | — | +0.004 | — | 253.0 |
+| surrogate (sharp cube) | 0 | 14 | +0.006 | (232.3, −99.2, −17.5) | 253.2 |
+
+The superquadric converges to the surrogate as its corners sharpen; extrapolated to a sharp
+corner it matches the surrogate within 0.002 m/s and 0.2 rad/s. Total energy never exceeds E₀
+in any run. After the first impact the trajectories diverge (chaotic tumbling: small
+differences in post-impact state grow), e.g. centre height at step 20 000: 3.04 cm (surrogate)
+vs 2.74 cm (SQ n = 50); this is expected and not a discrepancy of the contact model.
+
+Conclusion: the contact-point stopgap (R04.2b), unit normal, corner detection and rigid-body
+integration reproduce the native superquadric contact dynamics for a sharp cube. Still a
+numerical comparison; no experimental validation.

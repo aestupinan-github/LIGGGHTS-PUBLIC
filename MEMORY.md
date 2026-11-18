@@ -82,6 +82,15 @@ Generated high-level documentation (session reports, analyses, QA reviews, hando
 | all | E_tot = KE + E_rot + PE never exceeds E₀ |
 Regression: test_01/01b/01c/02 OK; `cohesion` tutorial thermo identical to previous build.
 
+### Superquadric reference (2026-11-18)
+- `test_cases/superquadric_reference/`: sq_04 (edge) and sq_05c (spinning) with a superquadric
+  cube (blockiness 50), built separately (`ENABLE_SQ=ON`, from a copy of src/ — generated
+  style_*.h are shared per source tree, a second configure overwrites them).
+- Edge: e 0.898 (surr.) vs 0.901 (SQ). Spinning first impact: SQ n = 10/20/50 converge to the
+  surrogate; extrapolated sharp corner vz 0.004 vs 0.006 m/s, ‖ω‖ 253.0 vs 253.2 rad/s.
+- Found and fixed: `atom_vec_surrogate.cpp` was not guarded by `SURROGATE_ACTIVE_FLAG` →
+  builds with `ENABLE_SURROGATE=OFF` (e.g. CI) failed to compile.
+
 ### Input syntax for tilted/spinning surrogate cases
 ```
 set atom * diameter 0.01

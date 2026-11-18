@@ -3,6 +3,10 @@
      Licensed under GPL v2 (LIGGGHTS)
  ------------------------------------------------------------------------- */
 
+// Whole file compiled only with ENABLE_SURROGATE=ON (the header is fully guarded;
+// without the guard a build with ENABLE_SURROGATE=OFF fails).
+#ifdef SURROGATE_ACTIVE_FLAG
+
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -927,3 +931,5 @@ void AtomVecSurrogate::write_data(FILE *fp, int n, double **buf)
 {
   // Minimal implementation; surrogate particles write standard atom data
 }
+
+#endif // SURROGATE_ACTIVE_FLAG
