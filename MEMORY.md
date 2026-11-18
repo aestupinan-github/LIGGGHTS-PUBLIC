@@ -57,11 +57,14 @@ Generated high-level documentation (session reports, analyses, QA reviews, hando
 (L = 1 m and 1 cm); verified against a superquadric reference. Branch `surrogate-shape-dev`,
 last commits `d41396b6` (tilted/spinning), `505a6e18` (SQ reference + non-surrogate build fix).
 
-**In progress (Session 10):** systematic surrogate vs superquadric comparison for all tilted
-cases (test_03 corner, test_04 edge, test_05a/b/c spinning), with *real* high-blockiness SQ runs
-(the "extrapolated sharp corner" row in Spec 04 was a linear fit of n = 10/20/50, post-processing,
-not a simulation). Output: `DOCUMENTATION.md/comparison_surrogate_vs_superquadric/` (report,
-gnuplot plots + .dat data), intended as input for a publication.
+**Done (Session 10):** surrogate vs superquadric comparison, all tilted cases (03, 04, 05a/b/c),
+real SQ runs blockiness 10…1000 (40 runs). At n = 1000: onset within 1 step, rebound v_z within
+0.001–0.010 m/s, ω within 0.2–1.2 %, no energy gain anywhere. Report (publication input):
+`DOCUMENTATION.md/comparison_surrogate_vs_superquadric/REPORT.md` (gnuplot figures in `plots/`,
+data in `data/*.dat`, generating scripts in `scripts/`). The earlier "extrapolated sharp corner"
+value in Spec 04 was post-processing, now superseded by these runs.
+Known model differences to state in a publication: Hertz reff = L/2 for the surrogate vs
+curvature-based reff for SQ; contact-point definition (stopgap) for near-edge/face contacts.
 
 **Open (mandatory / bugs):**
 1. Contact point must come from the surrogate model (Spec 04 R04.2b). LIGGGHTS runs a cube-only
@@ -77,7 +80,7 @@ gnuplot plots + .dat data), intended as input for a publication.
 7. No automated tests (ctest empty; Spec 05).
 8. No experimental / physical validation yet (only numerical: Hertz estimates, SQ reference).
 
-**Next steps (proposed):** finish the comparison report → send the contact-point request →
+**Next steps (proposed):** send the contact-point request →
 decide between Spec 05 (automated tests from the reference cases) and multi-shape.
 
 **Build notes:** surrogate build in `build/` (`-DENABLE_SURROGATE=ON -DLIBTORCH_DIR=~/Programs/libtorch`);

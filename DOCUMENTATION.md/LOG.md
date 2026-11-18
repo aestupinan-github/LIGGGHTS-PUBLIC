@@ -79,6 +79,6 @@ Session-by-session log of the surrogate shape (ss) project. Comprehensive record
   integration + cube inertia, `set quat`, `compute erotate/surrogate`, ghost-comm fix; tests 03–05.
 - **S9b:** superquadric reference (sq_04, sq_05c); fixed non-surrogate build (unguarded
   atom_vec_surrogate.cpp). Commits d41396b6, 505a6e18.
-- **S10 (in progress):** full surrogate vs superquadric comparison report with gnuplot figures
-  in `DOCUMENTATION.md/comparison_surrogate_vs_superquadric/`.
+- **S10:** surrogate vs superquadric comparison, 5 cases × (surrogate + SQ n = 10…1000), report
+  with gnuplot figures + .dat data: `DOCUMENTATION.md/comparison_surrogate_vs_superquadric/REPORT.md`.
 - Resume point and open items: `MEMORY.md` → "RESUME HERE".

@@ -509,11 +509,15 @@ Trajectory over 20 000 steps (3 bounces): centre height agrees within 0.2 mm (0.
 | SQ n = 10 | 0.090 | 15 | +0.355 | (217.3, −76.4, −15.5) | 230.8 |
 | SQ n = 20 | 0.046 | 15 | +0.180 | (225.6, −88.1, −16.7) | 242.7 |
 | SQ n = 50 | 0.019 | 14 | +0.079 | (228.5, −94.5, −17.3) | 247.9 |
-| SQ → sharp (linear extrapolation) | 0 | — | +0.004 | — | 253.0 |
+| SQ → sharp (linear fit of n = 10/20/50; **post-processing, not a run** — superseded, see below) | 0 | — | +0.004 | — | 253.0 |
 | surrogate (sharp cube) | 0 | 14 | +0.006 | (232.3, −99.2, −17.5) | 253.2 |
 
-The superquadric converges to the surrogate as its corners sharpen; extrapolated to a sharp
-corner it matches the surrogate within 0.002 m/s and 0.2 rad/s. Total energy never exceeds E₀
+The superquadric converges to the surrogate as its corners sharpen.
+
+**Superseded by real runs (2026-11-18):** blockiness 10…1000 for all five tilted cases
+(03, 04, 05a/b/c). At n = 1000 (corner rounding 0.001 L): contact onset within 1 step, rebound
+v_z within 0.001–0.010 m/s, post-impact ω within 0.2–1.2 %. Full report with figures and data:
+`DOCUMENTATION.md/comparison_surrogate_vs_superquadric/REPORT.md`. Total energy never exceeds E₀
 in any run. After the first impact the trajectories diverge (chaotic tumbling: small
 differences in post-impact state grow), e.g. centre height at step 20 000: 3.04 cm (surrogate)
 vs 2.74 cm (SQ n = 50); this is expected and not a discrepancy of the contact model.
