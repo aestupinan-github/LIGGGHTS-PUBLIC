@@ -42,4 +42,5 @@ Edge case (first impact): surrogate vz ratio 0.898, SQ(n=50) 0.901; contact 17 v
 no spin in either. Spinning case (first impact): rebound vz 0.006 vs 0.079 m/s, |ω| 253 vs 248 rad/s;
 extrapolating SQ n = 10/20/50 to a sharp corner gives vz 0.004 m/s, |ω| 253.0 rad/s.
 
-`reference/` holds frozen logs and VTK of both cases (blockiness 50).
+`reference/` holds frozen logs and VTK of both cases (blockiness 50), and
+`reference/sq_pour_125_cubes/` the 125-cube run (input copy, `output.log`, VTK `post/` every 2000 steps).

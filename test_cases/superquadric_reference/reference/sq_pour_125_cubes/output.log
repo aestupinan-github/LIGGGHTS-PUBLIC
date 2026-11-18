@@ -1,0 +1,177 @@
+LIGGGHTS (Version LIGGGHTS-PUBLIC 3.8.0, compiled 2026-11-18 09:21:02 by su_estupinan, git commit , build configuration: MPI VTK SQ SMALLBIG, models: HERTZ TANGENTIAL_HISTORY TANGENTIAL_NO_HISTORY COHESION_SJKR COHESION_SJKR2 ROLLING_EPSD2 SURFACE_DEFAULT SURFACE_SUPERQUADRIC)
+Created orthogonal box = (-0.06 -0.06 0) to (0.06 0.06 0.2)
+  1 by 1 by 1 MPI processor grid
+Lattice spacing in x,y,z = 0.02 0.02 0.02
+Created 125 atoms
+Displacing atoms ...
+Setting atom values ...
+  125 settings made for shape
+  125 settings made for blockiness
+  125 settings made for density
+Setting atom values ...
+  125 settings made for quat/random
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (/tmp/opencode/sq_src/src/contact_models.h:365)
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (/tmp/opencode/sq_src/src/contact_models.h:365)
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (/tmp/opencode/sq_src/src/contact_models.h:365)
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (/tmp/opencode/sq_src/src/contact_models.h:365)
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (/tmp/opencode/sq_src/src/contact_models.h:365)
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (/tmp/opencode/sq_src/src/contact_models.h:365)
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (/tmp/opencode/sq_src/src/contact_models.h:365)
+Setting up run at Wed Nov 18 16:56:49 2026
+
+Memory usage per processor = 19.0079 Mbytes
+    Step    Atoms             zc             ke           erot           epot           etot 
+       0      125 0.1000367833 0 0 0.1226695014 0.1226695014 
+    1000      125 0.09954628334 0.0006014726626 0 0.1220680287 0.1226695014 
+    2000      125 0.09807478334 0.00240589065 0 0.1202636107 0.1226695014 
+    3000      125 0.09562228334 0.005413253964 0 0.1172562474 0.1226695014 
+    4000      125 0.09218878334 0.009623562602 0 0.1130459388 0.1226695014 
+    5000      125 0.08777428334 0.01503681657 0 0.1076326848 0.1226695014 
+    6000      125 0.08237878334 0.02165301585 0 0.1010164855 0.1226695014 
+    7000      125 0.07600228334 0.02947216047 0 0.09319734092 0.1226695014 
+    8000      125 0.06864478334 0.03849425041 0 0.08417525098 0.1226695014 
+    9000      125 0.06030628334 0.04871928567 0 0.07395021572 0.1226695014 
+   10000      125 0.05098678334 0.06014726626 0 0.06252223513 0.1226695014 
+   11000      125 0.0422475954 0.06094019583 0.0005312908025 0.05180585871 0.1132773453 
+   12000      125 0.03364760953 0.07149077762 0.0004237871755 0.04126017797 0.1131747428 
+   13000      125 0.02657155843 0.0667225164 0.0009170996585 0.03258321305 0.1002228291 
+   14000      125 0.0201382963 0.0578228098 0.002411632472 0.02469446422 0.08492890649 
+   15000      125 0.01554988952 0.06338753188 0.0016279647 0.01906795811 0.08408345469 
+   16000      125 0.01311330742 0.04430824347 0.002612013094 0.01608011402 0.06300037058 
+   17000      125 0.01284180833 0.01869308293 0.00389410816 0.01574718991 0.03833438101 
+   18000      125 0.01382083085 0.01613635152 0.003528381461 0.01694771036 0.03661244334 
+   19000      125 0.01420044316 0.01408311906 0.003055912355 0.01741320766 0.03455223908 
+   20000      125 0.01404554435 0.0122191939 0.002608457 0.01722326392 0.03205091483 
+   21000      125 0.01367835109 0.01047388321 0.002255115483 0.01677299541 0.0295019941 
+   22000      125 0.01301402707 0.009769147862 0.001951977558 0.0159583721 0.02767949752 
+   23000      125 0.01221451379 0.008592540379 0.001674100132 0.01497797376 0.02524461427 
+   24000      125 0.01131108685 0.008316085152 0.001543939176 0.01387015193 0.02373017626 
+   25000      125 0.0102444696 0.007476651564 0.001354479388 0.01256221897 0.02139334992 
+   26000      125 0.009447395936 0.006259177341 0.001136203241 0.01158481221 0.01898019279 
+   27000      125 0.008809242645 0.00491141221 0.00102042153 0.01080228059 0.01673411433 
+   28000      125 0.00829409974 0.004063720487 0.0007482798547 0.01017058971 0.01498259006 
+   29000      125 0.007858834347 0.003139913827 0.0006389426278 0.009636848154 0.01341570461 
+   30000      125 0.007523755192 0.002620228388 0.0004475822096 0.009225959365 0.01229376996 
+Loop time of 20.4918 on 1 procs for 30000 steps with 125 atoms, finish time Wed Nov 18 16:57:09 2026
+
+
+Pair  time (%) = 17.4935 (85.3687)
+Neigh time (%) = 0.00747668 (0.0364863)
+Comm  time (%) = 0.000989084 (0.00482674)
+Outpt time (%) = 0.0102608 (0.0500728)
+Modfy time (%) = 2.96632 (14.4757)
+  Modify   time [0] (%) = 2.96632 (14.4757)
+Other time (%) = 0.013162 (0.0642305)
+Fix m1 property/global time (%) = 5.04e-07 (2.45953e-06)
+  [0] Fix m1 property/global time 5.04e-07
+Fix m2 property/global time (%) = 8.4e-08 (4.09921e-07)
+  [0] Fix m2 property/global time 8.4e-08
+Fix m3 property/global time (%) = 1.5e-08 (7.32002e-08)
+  [0] Fix m3 property/global time 1.5e-08
+Fix m4 property/global time (%) = 9.6e-08 (4.68481e-07)
+  [0] Fix m4 property/global time 9.6e-08
+Fix integrate nve/superquadric time (%) = 0.435018 (2.1229)
+  [0] Fix integrate nve/superquadric time 0.435018
+Fix gravity gravity time (%) = 0.00610922 (0.0298131)
+  [0] Fix gravity gravity time 0.00610922
+Fix wz0 wall/gran time (%) = 1.99422 (9.73182)
+  [0] Fix wz0 wall/gran time 1.99422
+Fix history_wz0 property/atom time (%) = 1.0512e-05 (5.12987e-05)
+  [0] Fix history_wz0 property/atom time 1.0512e-05
+Fix wz1 wall/gran time (%) = 0.0013266 (0.00647384)
+  [0] Fix wz1 wall/gran time 0.0013266
+Fix history_wz1 property/atom time (%) = 3.829e-06 (1.86856e-05)
+  [0] Fix history_wz1 property/atom time 3.829e-06
+Fix wx0 wall/gran time (%) = 0.178065 (0.868958)
+  [0] Fix wx0 wall/gran time 0.178065
+Fix history_wx0 property/atom time (%) = 3.407e-06 (1.66262e-05)
+  [0] Fix history_wx0 property/atom time 3.407e-06
+Fix wx1 wall/gran time (%) = 0.119522 (0.58327)
+  [0] Fix wx1 wall/gran time 0.119522
+Fix history_wx1 property/atom time (%) = 3.476e-06 (1.69629e-05)
+  [0] Fix history_wx1 property/atom time 3.476e-06
+Fix wy0 wall/gran time (%) = 0.108384 (0.528915)
+  [0] Fix wy0 wall/gran time 0.108384
+Fix history_wy0 property/atom time (%) = 3.311e-06 (1.61577e-05)
+  [0] Fix history_wy0 property/atom time 3.311e-06
+Fix wy1 wall/gran time (%) = 0.122554 (0.598067)
+  [0] Fix wy1 wall/gran time 0.122554
+Fix history_wy1 property/atom time (%) = 3.378e-06 (1.64847e-05)
+  [0] Fix history_wy1 property/atom time 3.378e-06
+Fix contacthistory contacthistory time (%) = 0.00109132 (0.00532567)
+  [0] Fix contacthistory contacthistory time 0.00109132
+
+Nlocal:    125 ave 125 max 125 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:    0 ave 0 max 0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:    521 ave 521 max 521 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 521
+Ave neighs/atom = 4.168
+Neighbor list builds = 238
+Dangerous builds = 0

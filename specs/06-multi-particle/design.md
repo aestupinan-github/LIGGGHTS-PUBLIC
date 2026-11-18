@@ -9,7 +9,8 @@ Implemented 2026-11-18
 | File | Content |
 |---|---|
 | `test_cases/surrogate_multi/in.pour_125_cubes` | input (header documents the placeholder pair contact) |
-| `test_cases/surrogate_multi/reference/np{1,2,4}/output.log` | frozen logs (np1 also VTK `post/`, every 2000 steps) |
+| `test_cases/surrogate_multi/reference/np{1,2,4}/` | input copy + frozen `output.log` (np1 also VTK `post/`, every 2000 steps) |
+| `test_cases/superquadric_reference/reference/sq_pour_125_cubes/` | SQ twin: input copy, `output.log`, `log.liggghts`, VTK `post/` |
 | `tests/CMakeLists.txt` | `surrogate_regression_pour_125_cubes` (np1 vs reference, rtol 1e-6) |
 
 ## Setup
