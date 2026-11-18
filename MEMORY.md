@@ -51,6 +51,41 @@ Generated high-level documentation (session reports, analyses, QA reviews, hando
 
 **Status:** RESOLVED ✅
 
+## ▶ RESUME HERE (2026-11-18) — current state, open items, next steps
+
+**State:** surrogate cube–wall contact works for face, edge, corner and spinning cases
+(L = 1 m and 1 cm); verified against a superquadric reference. Branch `surrogate-shape-dev`,
+last commits `d41396b6` (tilted/spinning), `505a6e18` (SQ reference + non-surrogate build fix).
+
+**In progress (Session 10):** systematic surrogate vs superquadric comparison for all tilted
+cases (test_03 corner, test_04 edge, test_05a/b/c spinning), with *real* high-blockiness SQ runs
+(the "extrapolated sharp corner" row in Spec 04 was a linear fit of n = 10/20/50, post-processing,
+not a simulation). Output: `DOCUMENTATION.md/comparison_surrogate_vs_superquadric/` (report,
+gnuplot plots + .dat data), intended as input for a publication.
+
+**Open (mandatory / bugs):**
+1. Contact point must come from the surrogate model (Spec 04 R04.2b). LIGGGHTS runs a cube-only
+   stopgap. Request drafted, **not sent**: `DOCUMENTATION.md/REQUEST_SURROGATE_TEAM_CONTACT_POINT_20261117.md`.
+2. Restart files unsupported for surrogate — `.scratch/surrogate-restart/issues/01-restart-not-supported.md`.
+3. `.gitignore` ignores itself → ignore rules (output/, log.liggghts) are local only.
+
+**Open (later):**
+4. Multi-shape per simulation (Spec 03 R03.6a/R03.9 table: per-particle shape_key input, model
+   registry by shape_key, pair-model paths, per-shape L↔r and volume).
+5. Anisotropic-inertia shapes need a body-frame integrator (Spec 04 R04.2e).
+6. ss-ss contact (Spec 04 R04.7), mesh walls (R04.8).
+7. No automated tests (ctest empty; Spec 05).
+8. No experimental / physical validation yet (only numerical: Hertz estimates, SQ reference).
+
+**Next steps (proposed):** finish the comparison report → send the contact-point request →
+decide between Spec 05 (automated tests from the reference cases) and multi-shape.
+
+**Build notes:** surrogate build in `build/` (`-DENABLE_SURROGATE=ON -DLIBTORCH_DIR=~/Programs/libtorch`);
+SQ build only from a copy of `src/` (generated `src/style_*.h` are shared per source tree).
+Run cases with `SS_MODELS_DIR=$PWD/SS_models`. Python with torch: `~/Programs/env_folder`.
+
+---
+
 ## ⚡ Session 9 Summary (2026-11-17) — TILTED / SPINNING CUBES ✅
 
 ### Implemented (Spec 04 R04.2b–e, Spec 03 R03.9)

@@ -66,3 +66,19 @@ Session-by-session log of the surrogate shape (ss) project. Comprehensive record
 - Multi-material support: future work at physics model level
 - Mesh-wall contact: future work
 - ss-ss contact: exploratory, future work
+
+
+---
+
+## Sessions 8–10 (2026-11-17 / 18)
+
+- **S8:** surrogate contract corrected to run_029 (input = centre height / L, output
+  sd = out·y_scale + y_mean − h_exact); scalers fixed; L = diameter; VTK output; reference results.
+- **S9:** tilted/spinning cubes — contact-point STOPGAP (Spec 04 R04.2b), `surface surrogate`,
+  corner detection (r_circ·L), unit wall normal (force was under-estimated ≤ 16 %), quaternion
+  integration + cube inertia, `set quat`, `compute erotate/surrogate`, ghost-comm fix; tests 03–05.
+- **S9b:** superquadric reference (sq_04, sq_05c); fixed non-surrogate build (unguarded
+  atom_vec_surrogate.cpp). Commits d41396b6, 505a6e18.
+- **S10 (in progress):** full surrogate vs superquadric comparison report with gnuplot figures
+  in `DOCUMENTATION.md/comparison_surrogate_vs_superquadric/`.
+- Resume point and open items: `MEMORY.md` → "RESUME HERE".
