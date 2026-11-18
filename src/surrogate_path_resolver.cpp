@@ -9,6 +9,7 @@
 #include <sstream>
 #include <unistd.h>
 #include <libgen.h>
+#include <sys/stat.h>
 
 using namespace LAMMPS_NS;
 
@@ -76,11 +77,11 @@ std::string SurrogatePathResolver::resolve_models_dir(void (*error_callback)(con
   // Step 4: System install
   search_paths.push_back("/usr/local/liggghts/SS_models");
   
-  // Search for existing directory
+  // Search for an existing SS_models directory (shape-independent probe,
+  // Spec 03 R03.9: no hard-coded shape name)
   for (const auto& path : search_paths) {
-    std::string check_file = path + "/ss-cube-walls/model.pt";
-    // Simple heuristic: check if ss-cube-walls subdir exists
-    if (file_exists(check_file)) {
+    struct stat st;
+    if (stat(path.c_str(), &st) == 0 && S_ISDIR(st.st_mode)) {
       return path;
     }
   }

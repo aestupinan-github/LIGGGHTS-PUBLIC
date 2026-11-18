@@ -352,7 +352,11 @@ void Set::command(int narg, char **arg)
       else zvalue = force->numeric(FLERR,arg[iarg+3]);
       if (strstr(arg[iarg+4],"v_") == arg[iarg+4]) varparse(arg[iarg+4],4);
       else wvalue = force->numeric(FLERR,arg[iarg+4]);
-      if (!atom->ellipsoid_flag && !atom->tri_flag && !atom->superquadric_flag)
+      if (!atom->ellipsoid_flag && !atom->tri_flag && !atom->superquadric_flag
+#ifdef SURROGATE_ACTIVE_FLAG
+          && !atom->surrogate_flag   // Spec 04 R04.2e RF-14
+#endif
+         )
         error->all(FLERR,"Cannot set this attribute for this atom style");
       if(strcmp(arg[iarg],"quat") == 0)
       set(QUAT);
@@ -363,7 +367,11 @@ void Set::command(int narg, char **arg)
     } else if (strcmp(arg[iarg],"quat/random") == 0) {
       if (iarg+2 > narg) error->all(FLERR,"Illegal set command");
       ivalue = force->inumeric(FLERR,arg[iarg+1]);
-      if (!atom->ellipsoid_flag && !atom->tri_flag && !atom->superquadric_flag)
+      if (!atom->ellipsoid_flag && !atom->tri_flag && !atom->superquadric_flag
+#ifdef SURROGATE_ACTIVE_FLAG
+          && !atom->surrogate_flag   // Spec 04 R04.2e RF-14
+#endif
+         )
         error->all(FLERR,"Cannot set this attribute for this atom style");
       if (ivalue <= 0)
         error->all(FLERR,"Invalid random number seed in set command");
@@ -1054,6 +1062,10 @@ void Set::set(int keyword)
       else if (avec_superquadric)
         quat = avec_superquadric->return_quat_ptr(i);
       #endif
+      #ifdef SURROGATE_ACTIVE_FLAG
+      else if (atom->surrogate_flag)
+        quat = atom->quaternion[i];   // Spec 04 R04.2e RF-14
+      #endif
       else
         error->one(FLERR,"Cannot set quaternion for atom that has none");
 
@@ -1216,6 +1228,10 @@ void Set::setrandom(int keyword)
           #ifdef SUPERQUADRIC_ACTIVE_FLAG
           else if (avec_superquadric)
             quat = avec_superquadric->return_quat_ptr(i);
+          #endif
+          #ifdef SURROGATE_ACTIVE_FLAG
+          else if (atom->surrogate_flag)
+            quat = atom->quaternion[i];   // Spec 04 R04.2e RF-14
           #endif
           else
             error->one(FLERR,"Cannot set quaternion for atom that has none");

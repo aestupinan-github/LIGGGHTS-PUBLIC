@@ -62,3 +62,36 @@ if(atom->surrogate_flag && deltan > 0.0) {
 int shape_key = atom->shape_key[ip];
 SurrogateModel* model = shape_database.get_model(shape_key, object_type);
 ```
+
+## Tilted / rotating cubes (R04.2b–R04.2e, 2026-11-17)
+
+**Per-shape geometry layer** (`surrogate_interface.h`, namespace `SurrogateShape`): a struct
+of shape constants + functions, selected by `h_exact_method` from scalers.dat. Only the cube
+(`analytical_rotation_matrix`) exists; an unknown method is an error.
+
+| Item | Cube |
+|---|---|
+| `support_height(q, d)` | `0.5 (|u_x|+|u_y|+|u_z|)`, `u = Rᵀd` |
+| `contact_point(q, d, sd)` (STOPGAP R04.2b) | penetration-weighted mean of vertices below the plane, projected on the plane |
+| `bounding_radius` | `r_circ` (scalers.dat) = √3/2 |
+| `inertia_factor k_I` | 1/6 (I = k_I m L², isotropic) |
+| `volume_factor k_V` | 1 (V = k_V L³) |
+
+**fix_wall_gran (surrogate block):**
+1. `radius_eff = r_circ·L` for the neighbour list and the `deltan` contact gate (RF-10).
+2. After the model query: `sidata.contact_point = x + L·cp_unit`, `sidata.is_non_spherical = true`,
+   unit normal `en = -delta/|delta|`, `deltan = sd_phys`.
+
+**surface_model_surrogate.h** (`surface surrogate`): `checkSurfaceIntersect` sets
+`is_non_spherical`; `surfacesIntersect` sets `reff = radi` and calls the generic
+`MathExtraLiggghtsNonspherical::surfacesIntersectNonSpherical` (velocity at the contact point,
+lever arm `cri = |x_c − x|`). No superquadric code.
+
+**Build:** `ENABLE_SURROGATE` defines `NONSPHERICAL_ACTIVE_FLAG` (generic torque-from-contact-point
+code only; verified that nothing superquadric-specific is behind it) and enables
+`ENABLE_MODEL_SURFACE_SURROGATE`.
+
+**fix nve/sphere (surrogate branch):** `I = k_I m L²`; quaternion update
+`q ← Δq(ω dt) ⊗ q` each full step (same algorithm as `MathExtraLiggghtsNonspherical::integrate_quat`).
+
+**compute erotate/surrogate:** `Σ ½ k_I m L² |ω|²`.

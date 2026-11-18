@@ -144,22 +144,32 @@ print_header "Surrogate Contact Model Test Suite"
 check_prerequisites
 
 # Determine which tests to run
-TEST_NUM=${1:-0}  # 0 = all, 1 = test 01, 2 = test 02
+TEST_NUM=${1:-0}  # 0 = all, 1 = test 01, 2 = test 02, 03/04/05a/05b/05c = tilted cases
 
 # Run tests
 FAILED=0
 
-if [ "$TEST_NUM" -eq 0 ] || [ "$TEST_NUM" -eq 1 ]; then
+if [ "$TEST_NUM" = "0" ] || [ "$TEST_NUM" = "1" ]; then
     if ! run_test 1 "Cube (L=1m) Falling on Plane" "$TEST_DIR/test_01_cube_1m_falling.in"; then
         FAILED=$((FAILED + 1))
     fi
 fi
 
-if [ "$TEST_NUM" -eq 0 ] || [ "$TEST_NUM" -eq 2 ]; then
+if [ "$TEST_NUM" = "0" ] || [ "$TEST_NUM" = "2" ]; then
     if ! run_test 2 "Cube (L=1cm) Falling on Plane" "$TEST_DIR/test_02_cube_1cm_falling.in"; then
         FAILED=$((FAILED + 1))
     fi
 fi
+
+# Tilted / spinning cubes (Spec 04 R04.2b-e), L = 1 cm
+for t in 03_cube_1cm_corner 04_cube_1cm_edge 05a_cube_1cm_spin_h002 05b_cube_1cm_spin_h005 05c_cube_1cm_spin_h010; do
+    n=${t%%_*}
+    if [ "$TEST_NUM" = "0" ] || [ "$TEST_NUM" = "$n" ]; then
+        if ! run_test "$n" "$t" "$TEST_DIR/test_$t.in"; then
+            FAILED=$((FAILED + 1))
+        fi
+    fi
+done
 
 # Summary
 print_header "Test Summary"

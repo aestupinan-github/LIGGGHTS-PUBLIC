@@ -174,6 +174,36 @@ if(atom->surrogate_flag) {
 - IF shape_key lookup fails at runtime (shape not found in database), error with diagnostic
 - IF characteristic_length is invalid (≤ 0, NaN, Inf), error with diagnostic
 
+### R03.9: Multi-Shape Readiness (audit 2026-11-17)
+
+**Rule for all new surrogate code:** shape-dependent quantities (support height, contact point,
+bounding radius, inertia, volume) SHALL be obtained through the per-shape geometry layer
+(`SurrogateShape`, Spec 04 design), never hard-coded as cube formulas at the call site.
+
+Known single-shape / cube-specific points (to be resolved with multi-shape support, Phase 3D):
+
+| Location | Limitation | Status |
+|---|---|---|
+| `atom_vec_surrogate.cpp` `create_atom` / `data_atom` | `shape_key = 0` for every particle; no input command sets it | open |
+| `atom_vec_surrogate.cpp` `settings()` / `init()` | exactly one shape name; error if > 1 | open (R03.6a) |
+| `fix_wall_gran.h` | one `SurrogateContactModel` per fix; `atom->shape_key[i]` never read | open — needs registry indexed by shape_key |
+| `fix_wall_gran.cpp` init | loads `surrogate_shape_keys[0]` only | open |
+| `surrogate_path_resolver.cpp` | probe hard-coded to `ss-cube-walls` | fixed 2026-11-17 (generic probe) |
+| `surrogate_path_resolver.cpp` | `-walls` suffix only; no pair-model path (`<shapeA>-<shapeB>`) | open (R04.7) |
+| cube geometry (`h_exact_cube`) called directly | no per-shape layer | fixed 2026-11-17 (`SurrogateShape`) |
+| `set.cpp` `diameter` | L = 2r (cube inscribed sphere); mass recomputed as a sphere | open — per-shape L↔r, volume |
+| `fix_nve_sphere.cpp` | isotropic inertia only | open for anisotropic shapes (body-frame integrator as `fix nve/superquadric`) |
+| `atom_vec_surrogate.cpp` `pack_border*` | ghost atoms had no shape_key / L / radius; `size_border` (7) < packed (11) | fixed 2026-11-17 (15 values, periodic shift added) |
+| `atom_vec_surrogate.cpp` `register_shape` | per-shape inertia factor | done 2026-11-17 (`surrogate_shape_inertia_factor[key]`, from scalers.dat `h_exact_method`) |
+| restart (`read_restart` / `write_restart`) | not supported for surrogate | **open bug** — `.scratch/surrogate-restart/issues/01-restart-not-supported.md` |
+| `ScalerRecord` | no explicit shape field (shape inferred from folder) | open (R04.5) |
+
+### R03.10: Restart Files (KNOWN LIMITATION)
+
+- `write_restart` / `read_restart` are **not supported** for `atom_style surrogate`
+  (shape database not saved; `settings()` fails on restore; `size_restart` / `pack_restart`
+  inconsistent). Bug report: `.scratch/surrogate-restart/issues/01-restart-not-supported.md`.
+
 ---
 
 ## Definitions

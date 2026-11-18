@@ -158,6 +158,7 @@ FixWallGran::FixWallGran(LAMMPS *lmp, int narg, char **arg) :
     // Initialize energy tracking for Phase 3C validation
     energy_prev_ = 0.0;
     contact_count_ = 0;
+    surrogate_shape_ = NULL;
 #endif
 
     // parse args
@@ -681,6 +682,19 @@ void FixWallGran::init()
 
             surrogate_contact_model_->load_model(shape_name.c_str());
 
+            // Per-shape geometry layer (Spec 03 R03.9): selected by h_exact_method
+            surrogate_shape_ = SurrogateInterface::shape_geometry_for(
+                surrogate_contact_model_->scaler_record.h_exact_method.c_str());
+            if(!surrogate_shape_)
+            {
+                char msg[512];
+                snprintf(msg, 512,
+                  "Surrogate shape '%s': no geometry implemented for h_exact_method '%s'",
+                  shape_name.c_str(),
+                  surrogate_contact_model_->scaler_record.h_exact_method.c_str());
+                error->fix_error(FLERR, this, msg);
+            }
+
             if(comm->me == 0)
             {
                 char msg[1024];
@@ -782,7 +796,22 @@ void FixWallGran::pre_force(int vflag)
     // build neighlist for primitive walls
     
     if(rebuildPrimitiveNeighlist_)
+    {
+#ifdef SURROGATE_ACTIVE_FLAG
+      // Spec 04 R04.2d: surrogate particles reach the wall with their circumscribed
+      // sphere (r_circ*L), not their inscribed radius
+      if(atom->surrogate_flag && surrogate_shape_)
+      {
+        surrogate_bounding_radius_.resize(nlocal > 0 ? nlocal : 1);
+        for(int i = 0; i < nlocal; i++)
+          surrogate_bounding_radius_[i] =
+            surrogate_shape_->bounding_radius * atom->characteristic_length[i];
+        primitiveWall_->buildNeighList(neighbor->skin,x_,surrogate_bounding_radius_.data(),nlocal);
+      }
+      else
+#endif
       primitiveWall_->buildNeighList(radius_ ? neighbor->skin:(r0_+neighbor->skin),x_,radius_,nlocal);
+    }
 
     rebuildPrimitiveNeighlist_ = false;
 }
@@ -1122,7 +1151,16 @@ void FixWallGran::post_force_primitive(int vflag)
 
     if(deltan>cutneighmax_) continue;
 
-    if(deltan <= 0 || deltan < contactDistanceMultiplier*radius[iPart])
+    // Spec 04 R04.2d: a surrogate particle may touch the wall as long as its
+    // circumscribed sphere (r_circ*L) does; the exact answer comes from the model
+    bool surrogate_in_reach = false;
+#ifdef SURROGATE_ACTIVE_FLAG
+    if(atom->surrogate_flag && surrogate_shape_)
+      surrogate_in_reach = (deltan + sidata.radi) <=
+        surrogate_shape_->bounding_radius * atom->characteristic_length[iPart];
+#endif
+
+    if(surrogate_in_reach || deltan <= 0 || deltan < contactDistanceMultiplier*radius[iPart])
     {
       // spheres
       bool intersectflag = (deltan <= 0);
@@ -1227,6 +1265,26 @@ void FixWallGran::post_force_primitive(int vflag)
             vectorZeroizeN(c_history[iPart], dnum_);
           continue;
         }
+
+        // ------------------------------------------------------------------
+        // STOPGAP (Spec 04 R04.2b): contact point computed in LIGGGHTS from the
+        // exact shape geometry (h_exact) of the same option4 evaluation.
+        // It MUST come from the surrogate model output once available
+        // (Constitution rule 1; DOCUMENTATION.md/REQUEST_SURROGATE_TEAM_CONTACT_POINT_20261117.md).
+        // Cube only (via the per-shape layer, Spec 03 R03.9).
+        // ------------------------------------------------------------------
+        {
+          double q_canon[4] = {atom->quaternion[iPart][0], atom->quaternion[iPart][1],
+                               atom->quaternion[iPart][2], atom->quaternion[iPart][3]};
+          SurrogateInterface::canonicalize_quaternion(q_canon);
+          SurrogateInterface::normalize_quaternion(q_canon);
+          double cp_unit[3];
+          if(!surrogate_shape_->contact_point(q_canon, dir_wall, sd_unit, cp_unit))
+            error->fix_error(FLERR, this, "Surrogate: contact point undefined for a contact (internal error)");
+          for(int k = 0; k < 3; k++)
+            sidata.contact_point[k] = x_[iPart][k] + L_actual * cp_unit[k];
+        }
+        sidata.is_non_spherical = true;   // native models apply torque = r x F
       }
       #endif
 
@@ -1252,6 +1310,20 @@ void FixWallGran::post_force_primitive(int vflag)
       sidata.delta[0] = -delta[0];
       sidata.delta[1] = -delta[1];
       sidata.delta[2] = -delta[2];
+
+#ifdef SURROGATE_ACTIVE_FLAG
+      // Spec 04 R04.2b RF-8c: pass the penetration and a unit wall normal.
+      // compute_force builds en = delta / (radi - deltan_sidata); scale delta to
+      // that length so en is the unit wall normal for any centre distance.
+      if(atom->surrogate_flag)
+      {
+        sidata.deltan = -deltan;                       // penetration >= 0
+        const double dlen = vectorMag3D(sidata.delta);
+        const double rlen = sidata.radi + sidata.deltan;
+        if(dlen > 0.0)
+          for(int k = 0; k < 3; k++) sidata.delta[k] *= rlen / dlen;
+      }
+#endif
 
       if(impl)
         impl->compute_force(this, sidata, intersectflag, v_wall);

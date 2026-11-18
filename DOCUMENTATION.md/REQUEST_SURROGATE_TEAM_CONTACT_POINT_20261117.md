@@ -2,6 +2,7 @@
 
 **From:** LIGGGHTS integration (branch `surrogate-shape-dev`) · **Date:** 2026-11-17
 **Status:** drafted, not yet sent · **LIGGGHTS reference:** Spec 04 R04.2b
+**Priority:** required — LIGGGHTS currently runs a temporary cube-only stopgap (see below)
 
 ## Summary
 
@@ -31,7 +32,20 @@ Lever arm from the cube centre to the contact point, in units of L, for a cube r
 
 Without the contact point a cube landing on a corner cannot tip over and its impact cannot change
 its spin. Our project rule (as in yours) is that overlap and contact point come from the same
-geometric evaluation, so we prefer not to compute it separately on the LIGGGHTS side.
+geometric evaluation.
+
+## What LIGGGHTS does meanwhile (temporary)
+
+To proceed with tilted and rotating cube tests, LIGGGHTS computes the contact point itself from
+the exact cube geometry of option4 (`h_exact`): the penetration-weighted mean of the cube vertices
+below the wall plane, projected onto the plane. This is exact for a cube but:
+- it is a deviation from the "single geometric evaluation" rule, accepted only temporarily;
+- it is cube-specific and cannot be used for future shapes without an exact geometry formula;
+- every code site is marked `STOPGAP (Spec 04 R04.2b)` and will be removed when your model
+  provides the point.
+
+Your output should therefore replace this stopgap one-to-one (same definition, see below), so
+results do not change discontinuously when we switch.
 
 ## Requested output format (proposal, open for discussion)
 
@@ -43,8 +57,8 @@ cp_x, cp_y, cp_z    contact point relative to the cube centre, world frame, unit
 ```
 
 - LIGGGHTS scales the point by `L_actual` and adds the particle centre.
-- Point definition to agree on, e.g. the centroid of the penetrating region, or the
-  penetration-weighted mean of the penetrating vertices. It must vary **continuously** with
+- Point definition to agree on. Our stopgap uses the penetration-weighted mean of the penetrating
+  vertices, projected onto the plane; the centroid of the penetrating region is an alternative. It must vary **continuously** with
   orientation (no jumps when switching between corner, edge and face contact), because a jump
   becomes a torque spike.
 - For option4 an exact part exists (the support point of `h(q)`), analogous to `h_exact`; a

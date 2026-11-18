@@ -321,6 +321,13 @@ class FixWallGran : public Fix, public LIGGGHTS::IContactHistorySetup {
 
 #ifdef SURROGATE_ACTIVE_FLAG
   std::unique_ptr<SurrogateContactModel> surrogate_contact_model_;
+
+  /// Per-shape geometry of the loaded model (Spec 03 R03.9); selected by h_exact_method
+  const SurrogateInterface::ShapeGeometry *surrogate_shape_;
+
+  /// Bounding (circumscribed) radius r_circ*L per local atom, for the wall neighbour
+  /// list and the contact gate (Spec 04 R04.2d: corners reach up to 0.866 L)
+  std::vector<double> surrogate_bounding_radius_;
   
   // Validation diagnostics (Phase 3C)
   double energy_prev_;

@@ -69,24 +69,24 @@ if(atom->surrogate_flag) {
 6. **Validate:** NaN/Inf → error; `sd_unit < sd_too_deep` → warning (extrapolation)
 7. **Physics Integration:** IF `deltan <= 0`, pass `-deltan` (penetration) to the force model
 
-### R04.2b: Contact Point for Torque (MANDATORY, open — recorded 2026-11-17)
+### R04.2b: Contact Point for Torque (MANDATORY — stopgap approved 2026-11-17)
 
-**Status:** Not implemented. Required before results with tilted or rotating cubes can be trusted.
+**Status:** STOPGAP in LIGGGHTS (approved by user 2026-11-17). **Final source MUST be the
+surrogate model output.** This requirement stays open until the surrogate provides the point
+and the stopgap is removed.
 
-**Contact normal (no action needed):** for a cube against a plane, the force direction is
-the **wall normal**, for face, edge and corner contacts alike. LIGGGHTS already has it
-(`delta` from the primitive wall). Only for future particle–particle (ss-ss) contact can
-the normal depend on the particle orientation (e.g. a face normal of one cube).
+**Contact normal (no action needed):** for a cube against a plane the force direction is the
+**wall normal** for face, edge and corner contacts alike; LIGGGHTS has it (`delta` from the
+primitive wall). Only future particle–particle (ss-ss) contact can have an orientation-dependent
+normal.
 
-**Contact point (missing):** the force must act at the touching feature (corner, edge
-midpoint or face centre), not through the particle centre. The lever arm `r = x_c − x_centre`
-gives the torque `τ = r × F` for both the normal force and the friction force.
+**Contact point (lever arm):** the force must act at the touching feature (corner, edge midpoint,
+face centre), not through the particle centre. Rotation itself is computed by the native contact
+law (`τ = (x_c − x_centre) × F`, normal and friction) and the integrator; the geometry step must
+supply `x_c` — the same pattern as superquadrics (`fix_wall_gran.cpp` stores
+`sidata.contact_point`, `normal_model_hertz.h` and `tangential_model_history.h` use it).
 
-Current behaviour (Phase 3C): `sidata.is_non_spherical` is false for surrogate particles, so
-- normal force: no torque (acts through the centre);
-- friction force: torque with the sphere lever arm `cri ≈ L/2` along the normal.
-
-Lever arm relative to the centre, per unit L (cube resting on a plane, computed 2026-11-17):
+Lever arm relative to the centre, per unit L (cube resting on a plane):
 
 | Orientation | Touching vertices | In-plane lever arm | Normal-force torque |
 |---|---|---|---|
@@ -96,17 +96,51 @@ Lever arm relative to the centre, per unit L (cube resting on a plane, computed 
 | edge, 30° about x | 2 | 0.183 | ≠ 0 |
 | corner, generic tilt q = (0.9, 0.3, 0.2, 0.1) | 1 | 0.259 | ≠ 0 |
 
-Symmetric orientations give zero torque; every generic tilt does not. A tilted cube therefore
-cannot tip over, and normal impact cannot change its spin, until this is implemented.
+Rigid-body estimate (1 m cube, 13.65 m/s, e = 0.9, generic tilt, no friction): rebound 12.3 m/s
+without the lever arm vs 4.8 m/s with it (≈ 29 rad/s induced spin).
 
-**Constitution rule 1:** the contact point must come from the same geometric evaluation as
-the overlap. The run_029 model outputs only `sd`. Therefore:
-- RF-8: THE SYSTEM SHALL obtain the wall contact point from the surrogate evaluation that
-  produces the overlap (model output, or the exact part of the same option4 evaluation if
-  approved), and SHALL set `sidata.contact_point` / `is_non_spherical` so that the native
-  normal and tangential models apply `τ = r × F`.
-- Request to the surrogate (training) team: add the contact point to the model output —
-  `DOCUMENTATION.md/REQUEST_SURROGATE_TEAM_CONTACT_POINT_20261117.md`.
+**Requirements:**
+- RF-8: THE SYSTEM SHALL set `sidata.contact_point` and `sidata.is_non_spherical` for surrogate
+  wall contacts so that the native normal and tangential models apply `τ = r × F`.
+- RF-8a (STOPGAP): UNTIL the surrogate outputs a contact point, THE SYSTEM SHALL compute it in
+  LIGGGHTS from the exact shape geometry of the same option4 evaluation (`h_exact`): the
+  penetration-weighted mean of the shape vertices below the wall plane, projected onto the plane.
+  It SHALL vary continuously with orientation (corner → edge → face). Cube only.
+- RF-8b: WHEN the surrogate provides a contact point, THE SYSTEM SHALL use it and the stopgap
+  SHALL be removed. Every stopgap code site carries the marker `STOPGAP (Spec 04 R04.2b)`.
+- RF-8c: THE SYSTEM SHALL pass a unit wall normal and the effective radius to the contact law.
+
+**Constitution rule 1 (temporary deviation, approved):** the point is computed in LIGGGHTS from
+the exact geometry part (`h_exact`) of the same option4 evaluation, not output by the network.
+Recorded here and in MEMORY.md; removed by RF-8b.
+
+Request to the surrogate (training) team: `DOCUMENTATION.md/REQUEST_SURROGATE_TEAM_CONTACT_POINT_20261117.md`.
+
+### R04.2c: Surface Model `surrogate` (explicit selection)
+
+- RF-9: THE SYSTEM SHALL provide a surface model `surface surrogate`, selected explicitly in
+  `pair_style gran` / `fix wall/gran` (as `surface superquadric` is for superquadrics).
+- RF-9a: It SHALL compute the relative velocity at the contact point including rotation, and the
+  lever arm, for surrogate particles; IF used with a non-surrogate atom style, THEN error.
+- RF-9b: It SHALL NOT depend on superquadric code (separate shape family).
+
+### R04.2d: Corner/Edge Contact Detection
+
+- RF-10: THE SYSTEM SHALL evaluate surrogate wall contact whenever the circumscribed sphere
+  (`r_circ · L`, r_circ from scalers.dat) is within reach of the wall, for both the neighbour list
+  and the contact check (a corner touches with the centre up to 0.866 L away). Resolves EC-4.
+
+### R04.2e: Rigid-Body Motion of Surrogate Particles
+
+- RF-11: THE SYSTEM SHALL integrate the orientation (quaternion) of surrogate particles every step.
+- RF-12: THE SYSTEM SHALL use the shape's moment of inertia, `I = k_I · m · L²`
+  (cube: k_I = 1/6, isotropic), in the rotational integration and in the rotational energy.
+- RF-13: THE SYSTEM SHALL provide `compute erotate/surrogate` returning Σ ½·k_I·m·L²·|ω|²
+  (shape-dependent through the per-shape geometry layer).
+- RF-14: `set ... quat` SHALL accept surrogate particles.
+- Isotropic inertia (cube) keeps ω ∥ angular momentum, so no Euler terms are needed. Shapes with
+  anisotropic inertia require a body-frame integrator (follow `fix nve/superquadric`) — recorded
+  in Spec 03 multi-shape readiness.
 
 ### R04.3: Input Validation (CRITICAL - Prevents Silent Failures)
 
@@ -265,7 +299,7 @@ if(atom->surrogate_flag && deltan > 0.0) {
 - EC-1: WHEN sd_unit < sd_too_deep (penetration deeper than training data), proceed but warn
 - EC-2: WHEN contact between particles (ss-ss, not available yet), handle gracefully (error with suggestion)
 - EC-3: WHEN z_unit > z_prefilter, the surrogate is not evaluated
-- EC-4: A tilted cube can touch the wall with its centre up to r_circ·L = 0.866 L away. Primitive-wall neighbour detection is sphere-based (radius L/2 + skin); a corner contact may be detected late. [NEEDS CLARIFICATION — open, does not affect face-down tests]
+- EC-4: A tilted cube can touch the wall with its centre up to r_circ·L = 0.866 L away. Resolved by R04.2d (RF-10).
 
 ---
 
@@ -423,3 +457,31 @@ undamped values, as expected with damping. No `sd_too_deep` warnings. test_01 an
 Numerical verification only. The force law is the native Hertz model acting on the
 surrogate overlap; for a face-down cube the surrogate overlap equals the exact geometric
 overlap to ~1e-4 L. No physical/experimental validation has been performed.
+
+## Validation Results — tilted / rotating cubes (2026-11-17, R04.2b–e)
+
+L = 0.01 m, ρ = 1000 kg/m³, E = 1e9 Pa, ν = 0.25, e = 0.9, μ = 0.2, dt = 1e-5 s,
+`surface surrogate`. Contact phase re-run with VTK every step.
+
+| Case | Orientation | ω₀ (rad/s) | Contact onset | e | |ω| after | max(E_tot)/E₀ |
+|---|---|---|---|---|---|---|
+| test_03 | corner (body diagonal vertical) | 0 | at z_c = 0.866 L (corner) | 0.905 | 4e-14 | 1.0 |
+| test_04 | edge (45° about x) | 0 | at z_c = 0.707 L (edge) | 0.898 | 6e-14 | 1.0 |
+| test_05a | generic tilt | (50, 30, 0) | h₀ = 0.02 m | — | up to 89 | 1.0 |
+| test_05b | generic tilt | (50, 30, 0) | h₀ = 0.05 m | — | up to 186 | 1.0 |
+| test_05c | generic tilt | (50, 30, 0) | h₀ = 0.10 m | — | up to 253 | 1.0 |
+
+- E_tot = KE + E_rot (compute erotate/surrogate, I = mL²/6) + m g z. It never exceeds its initial
+  value; it only drops during contacts (damping, friction).
+- Symmetric cases (test_03/04): no spin induced (lever arm 0), as required by R04.2b.
+- test_05c: torque appears exactly while the corner penetrates (steps 13721–13733) and is not
+  parallel to the normal-force lever arm only (friction contributes), as expected.
+- Regression: test_01/01b/01c/02 still keep the particle and rebound; `cohesion` tutorial
+  (spheres) gives identical thermo output to the previous build.
+
+**Change found and fixed (RF-8c):** before, the normal passed to the contact law had length
+(L/2 − p)/(L/2 + p) (< 1), so surrogate normal forces were under-estimated (by 16 % at p = 0.044 L).
+With the unit normal, test_01c gives e = 0.900 (was 0.899) and max penetration 0.0422 L (was 0.0444 L).
+
+Numerical verification only. The dynamics of the tumbling cases are not compared with an
+independent reference yet.

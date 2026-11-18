@@ -1,4 +1,4 @@
-LIGGGHTS (Version LIGGGHTS-PUBLIC 3.8.0, compiled 2026-11-11 09:50:45 by su_estupinan, git commit b0596d1b6dca30fe03789ecd9b3e0112edc1d23d, build configuration: MPI VTK SURROGATE SMALLBIG, models: HERTZ TANGENTIAL_HISTORY TANGENTIAL_NO_HISTORY COHESION_SJKR COHESION_SJKR2 ROLLING_EPSD2 SURFACE_DEFAULT)
+LIGGGHTS (Version LIGGGHTS-PUBLIC 3.8.0, compiled 2026-11-17 17:43:12 by su_estupinan, git commit 4807d20e0b78478be124a5e825349efbab21581c, build configuration: MPI VTK SURROGATE SMALLBIG, models: HERTZ TANGENTIAL_HISTORY TANGENTIAL_NO_HISTORY COHESION_SJKR COHESION_SJKR2 ROLLING_EPSD2 SURFACE_DEFAULT SURFACE_SURROGATE)
 Registered surrogate shape: ss-cube (key=0)
 Created orthogonal box = (-5 -5 0) to (5 5 20)
   1 by 1 by 1 MPI processor grid
@@ -27,9 +27,9 @@ WARNING:
 	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
 
  (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/contact_models.h:365)
-Loading surrogate contact model for shape 'ss-cube' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:679)
-Surrogate model loaded: shape='ss-cube', model='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/test_cases/surrogate_contact/../../SS_models/ss-cube-walls/model.pt', scalers='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/test_cases/surrogate_contact/../../SS_models/ss-cube-walls/scalers.dat' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:692)
-Setting up run at Tue Nov 17 11:26:29 2026
+Loading surrogate contact model for shape 'ss-cube' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:680)
+Surrogate model loaded: shape='ss-cube', model='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/test_cases/surrogate_contact/../../SS_models/ss-cube-walls/model.pt', scalers='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/test_cases/surrogate_contact/../../SS_models/ss-cube-walls/scalers.dat' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:706)
+Setting up run at Tue Nov 17 17:47:23 2026
 
 Memory usage per processor = 5.32744 Mbytes
     Step    Atoms       thermo_k       thermo_p 
@@ -173,25 +173,25 @@ Memory usage per processor = 5.32744 Mbytes
    13700        1      90312.768              0 
    13800        1      91636.014              0 
    13900        1      92968.884              0 
-   14000        1      65156.064              0 
-   14100        1      74359.939              0 
-   14200        1      73168.414              0 
-   14300        1      71986.512              0 
-   14400        1      70814.234              0 
-   14500        1       69651.58              0 
-   14600        1      68498.549              0 
-   14700        1      67355.142              0 
-   14800        1      66221.359              0 
-   14900        1      65097.199              0 
-   15000        1      63982.663              0 
-Loop time of 0.197115 on 1 procs for 15000 steps with 1 atoms, finish time Tue Nov 17 11:26:29 2026
+   14000        1      72701.608              0 
+   14100        1      74645.371              0 
+   14200        1      73451.552              0 
+   14300        1      72267.356              0 
+   14400        1      71092.784              0 
+   14500        1      69927.836              0 
+   14600        1      68772.512              0 
+   14700        1      67626.811              0 
+   14800        1      66490.733              0 
+   14900        1      65364.279              0 
+   15000        1      64247.449              0 
+Loop time of 0.289906 on 1 procs for 15000 steps with 1 atoms, finish time Tue Nov 17 17:47:24 2026
 
 
-Pair  time (%) = 0.00118532 (0.601333)
-Neigh time (%) = 0.0443443 (22.4966)
-Comm  time (%) = 0.000842929 (0.427633)
-Outpt time (%) = 0.123437 (62.6215)
-Other time (%) = 0.0273061 (13.8529)
+Pair  time (%) = 0.00155156 (0.535192)
+Neigh time (%) = 0.0774286 (26.7081)
+Comm  time (%) = 0.00132138 (0.455795)
+Outpt time (%) = 0.172749 (59.5878)
+Other time (%) = 0.0368561 (12.7131)
 
 Nlocal:    1 ave 1 max 1 min
 Histogram: 1 0 0 0 0 0 0 0 0 0

@@ -129,6 +129,8 @@ OPTION(ENABLE_MODEL_ROLLING_LUDING "Rolling Model Luding" ${DEFAULT_OFF})
 OPTION(ENABLE_MODEL_SURFACE_DEFAULT "Surface Model Default" ${DEFAULT_ON})
 OPTION(ENABLE_MODEL_SURFACE_SUPERQUADRIC "Surface Model Superquadric" ${DEFAULT_OFF})
 OPTION(ENABLE_MODEL_SURFACE_MULTICONTACT "Surface Model Multicontact" ${DEFAULT_OFF})
+# Surrogate surface model (Spec 04 R04.2c); defaults to ENABLE_SURROGATE
+OPTION(ENABLE_MODEL_SURFACE_SURROGATE "Surface Model Surrogate" ${ENABLE_SURROGATE})
 
 #=======================================
 IF("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
@@ -301,6 +303,10 @@ ENDIF()
 IF(ENABLE_MODEL_SURFACE_MULTICONTACT)
   ADD_CONTACT_MODEL("" "" "" "" "SURFACE_MULTICONTACT")
   SET(ENABLED_MODELS "${ENABLED_MODELS} SURFACE_MULTICONTACT")
+ENDIF()
+IF(ENABLE_MODEL_SURFACE_SURROGATE)
+  ADD_CONTACT_MODEL("" "" "" "" "SURFACE_SURROGATE")
+  SET(ENABLED_MODELS "${ENABLED_MODELS} SURFACE_SURROGATE")
 ENDIF()
 
 WRITE_WHITELIST()
@@ -514,7 +520,9 @@ IF(ENABLE_SURROGATE)
     INCLUDE_DIRECTORIES(${TORCH_INCLUDE_DIRS})
     
     # Add compile definitions for surrogate code
-    TARGET_COMPILE_DEFINITIONS(liggghts_obj PUBLIC SURROGATE_ACTIVE_FLAG)
+    # NONSPHERICAL_ACTIVE_FLAG enables the generic torque-from-contact-point code in the
+    # normal/tangential models (Spec 04 R04.2b); nothing superquadric-specific depends on it.
+    TARGET_COMPILE_DEFINITIONS(liggghts_obj PUBLIC SURROGATE_ACTIVE_FLAG NONSPHERICAL_ACTIVE_FLAG)
     
     # Link LibTorch libraries
     TARGET_LINK_LIBRARIES(liggghts_static PUBLIC torch torch_cpu c10)

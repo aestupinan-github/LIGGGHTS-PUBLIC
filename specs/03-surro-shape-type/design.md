@@ -51,8 +51,9 @@ std::vector<int> shape_keys;           // parallel to names (redundant but fast)
 ## Coexistence
 
 - Compile-time: `ENABLE_SURROGATE` CMake option defines `SURROGATE_ACTIVE_FLAG`
-- Runtime: one shape type per simulation (like superquadrics/multisphere)
-- No mixing of shape types in same simulation
+- Runtime (Phase 3C): one shape type per simulation, enforced in `AtomVecSurrogate::init()`
+- Future (Phase 3D, R03.6a): several shapes per simulation via per-particle `shape_key`;
+  see R03.9 for what still has to change
 
 ## Characteristic Length Assignment (R03.3, 2026-11-17)
 
@@ -66,3 +67,9 @@ if(atom->surrogate_flag)
 ```
 `AtomVecSurrogate::create_atom` / `data_atom` keep the defaults `radius = 0.5`, `L = 1.0`.
 `characteristic_length` is already packed in exchange/restart buffers.
+
+## Ghost Communication (2026-11-17)
+
+`pack_border` / `unpack_border` (and `_vel`) also send `radius`, `characteristic_length` and
+`shape_key`, so ghost particles carry their shape (needed for future ss-ss contact);
+`size_border` matches the packed count.

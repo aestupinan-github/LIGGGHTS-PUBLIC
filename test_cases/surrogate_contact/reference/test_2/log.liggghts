@@ -1,4 +1,4 @@
-LIGGGHTS (Version LIGGGHTS-PUBLIC 3.8.0, compiled 2026-11-11 09:50:45 by su_estupinan, git commit b0596d1b6dca30fe03789ecd9b3e0112edc1d23d, build configuration: MPI VTK SURROGATE SMALLBIG, models: HERTZ TANGENTIAL_HISTORY TANGENTIAL_NO_HISTORY COHESION_SJKR COHESION_SJKR2 ROLLING_EPSD2 SURFACE_DEFAULT)
+LIGGGHTS (Version LIGGGHTS-PUBLIC 3.8.0, compiled 2026-11-17 17:43:12 by su_estupinan, git commit 4807d20e0b78478be124a5e825349efbab21581c, build configuration: MPI VTK SURROGATE SMALLBIG, models: HERTZ TANGENTIAL_HISTORY TANGENTIAL_NO_HISTORY COHESION_SJKR COHESION_SJKR2 ROLLING_EPSD2 SURFACE_DEFAULT SURFACE_SURROGATE)
 # Test Case 02: Surrogate Contact - Cube (L=1cm) Falling on Plane
 #
 # Purpose: Test surrogate contact model with rescaled characteristic length (L=1cm)
@@ -123,9 +123,9 @@ dump            dmpvtk all custom/vtk 100 post/test02_*.vtk id type x y z vx vy 
 # Simulate for 0.2 seconds (20,000 timesteps at dt=0.00001)
 # Same number of timesteps as test_01, but different physical time
 run             20000
-Loading surrogate contact model for shape 'ss-cube' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:679)
-Surrogate model loaded: shape='ss-cube', model='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/test_cases/surrogate_contact/../../SS_models/ss-cube-walls/model.pt', scalers='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/test_cases/surrogate_contact/../../SS_models/ss-cube-walls/scalers.dat' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:692)
-Setting up run at Tue Nov 17 11:26:30 2026
+Loading surrogate contact model for shape 'ss-cube' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:680)
+Surrogate model loaded: shape='ss-cube', model='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/test_cases/surrogate_contact/../../SS_models/ss-cube-walls/model.pt', scalers='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/test_cases/surrogate_contact/../../SS_models/ss-cube-walls/scalers.dat' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:706)
+Setting up run at Tue Nov 17 17:47:24 2026
 
 Memory usage per processor = 4.31237 Mbytes
     Step    Atoms       thermo_k       thermo_p 
@@ -143,21 +143,21 @@ Memory usage per processor = 4.31237 Mbytes
    11000        1  0.00058222841              0 
    12000        1  0.00069289992              0 
    13000        1  0.00081319505              0 
-   14000        1  0.00074735711              0 
-   15000        1  0.00063223332              0 
-   16000        1  0.00052673314              0 
-   17000        1  0.00043085657              0 
-   18000        1  0.00034460361              0 
-   19000        1  0.00026797426              0 
-   20000        1  0.00020096852              0 
-Loop time of 0.110567 on 1 procs for 20000 steps with 1 atoms, finish time Tue Nov 17 11:26:30 2026
+   14000        1  0.00074640699              0 
+   15000        1  0.00063135947              0 
+   16000        1  0.00052593555              0 
+   17000        1  0.00043013524              0 
+   18000        1  0.00034395854              0 
+   19000        1  0.00026740545              0 
+   20000        1  0.00020047598              0 
+Loop time of 0.213241 on 1 procs for 20000 steps with 1 atoms, finish time Tue Nov 17 17:47:24 2026
 
 
-Pair  time (%) = 0.00155475 (1.40615)
-Neigh time (%) = 0.0608493 (55.0337)
-Comm  time (%) = 0.00117877 (1.06611)
-Outpt time (%) = 0.0210705 (19.0567)
-Other time (%) = 0.025914 (23.4373)
+Pair  time (%) = 0.00216873 (1.01703)
+Neigh time (%) = 0.113937 (53.4308)
+Comm  time (%) = 0.0015385 (0.721484)
+Outpt time (%) = 0.0295227 (13.8447)
+Other time (%) = 0.0660748 (30.9859)
 
 Nlocal:    1 ave 1 max 1 min
 Histogram: 1 0 0 0 0 0 0 0 0 0

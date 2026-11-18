@@ -87,6 +87,13 @@ class AtomVecSurrogate : public AtomVec {
   void unpack_border(int, int, double *);
   void unpack_border_vel(int, int, double *);
   int unpack_border_hybrid(int, int, double *);
+
+ private:
+  /// shared implementation of pack_border / pack_border_vel (Spec 03 R03.9)
+  int pack_border_impl(int, int *, double *, int, int *, bool);
+  /// shared implementation of unpack_border / unpack_border_vel
+  void unpack_border_impl(int, int, double *, bool);
+ public:
   
   void pack_data(double **);
   void write_data(FILE *, int, double **);

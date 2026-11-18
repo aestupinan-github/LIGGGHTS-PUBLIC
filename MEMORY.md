@@ -51,6 +51,50 @@ Generated high-level documentation (session reports, analyses, QA reviews, hando
 
 **Status:** RESOLVED ✅
 
+## ⚡ Session 9 Summary (2026-11-17) — TILTED / SPINNING CUBES ✅
+
+### Implemented (Spec 04 R04.2b–e, Spec 03 R03.9)
+- **Contact point STOPGAP** (R04.2b): `SurrogateInterface::contact_point_cube` — penetration-weighted
+  mean of vertices below the plane, projected on it; continuous corner→edge→face. Marked
+  `STOPGAP (Spec 04 R04.2b)` in `surrogate_interface.h` and `fix_wall_gran.cpp`. **MUST later come
+  from the surrogate output** (request drafted, not sent).
+- **Surface model `surface surrogate`** (new `src/surface_model_surrogate.h`), explicit in the input;
+  uses the generic `surfacesIntersectNonSpherical`; no superquadric code touched.
+- **Build:** `ENABLE_SURROGATE` now also defines `NONSPHERICAL_ACTIVE_FLAG` and enables
+  `ENABLE_MODEL_SURFACE_SURROGATE`.
+- **Per-shape geometry layer** `SurrogateInterface::ShapeGeometry` (support height, contact point,
+  bounding radius, inertia factor, volume factor), selected by scalers.dat `h_exact_method`; cube only.
+- **Corner detection** (R04.2d): wall neighbour list + contact gate use `r_circ·L`.
+- **Unit wall normal** (RF-8c): previously the normal had length (L/2−p)/(L/2+p) → surrogate normal
+  forces were under-estimated (16 % at p = 0.044 L). Fixed; test_01c e 0.899 → 0.900.
+- **Rigid body** (R04.2e): fix nve/sphere surrogate branch uses I = k_I m L² (cube 1/6) and integrates
+  the quaternion; `set quat`/`quat_direct`/`quat/random` work for surrogates; new
+  `compute erotate/surrogate` (shape-aware).
+- **Ghost comm fix:** `size_border` 7 → 15; ghosts now carry radius, rmass, L, shape_key; periodic shift.
+- Path resolver probe no longer hard-codes `ss-cube-walls`.
+
+### Test cases (L = 1 cm, reference/ updated)
+| Case | Result |
+|---|---|
+| test_03 corner (diagonal vertical) | contact at z_c = 0.866 L, e = 0.905, no spin (4e-14) |
+| test_04 edge (45°) | contact at z_c = 0.707 L, e = 0.898, no spin (6e-14) |
+| test_05a/b/c generic tilt, ω₀ = (50,30,0), h = 0.02/0.05/0.10 m | tumbling, torque only during contact |
+| all | E_tot = KE + E_rot + PE never exceeds E₀ |
+Regression: test_01/01b/01c/02 OK; `cohesion` tutorial thermo identical to previous build.
+
+### Input syntax for tilted/spinning surrogate cases
+```
+set atom * diameter 0.01
+set atom * mass 0.001                 # after diameter
+set atom * quat_direct qw qx qy qz
+set atom * omegax 50 omegay 30 omegaz 0
+fix wall all wall/gran model hertz tangential history surface surrogate primitive type 1 zplane 0.0
+pair_style gran model hertz tangential history surface surrogate
+compute erot all erotate/surrogate
+```
+
+---
+
 ## ⚡ Session 8 Summary (2026-11-17) — SURROGATE CONTRACT CORRECTED ✅
 
 **Supersedes:** Session 6.5 "critical sign fixes" and Session 7 "force discrepancy"
@@ -93,16 +137,20 @@ All 4 cases keep the particle and rebound; no sd_too_deep warnings.
 - Load-time guard: only `model_type option4` accepted.
 
 ### Open
-- **MANDATORY (Spec 04 R04.2b): contact point for torque.** Force direction on a plane = wall
-  normal (no change needed). Missing: application point (corner/edge/face). Today the normal force
-  acts through the centre (no torque) and friction uses the sphere lever arm L/2. Symmetric
-  orientations (flat, 45° edge, diagonal-vertical corner) give zero torque anyway; generic tilts do
-  not (lever arm up to ~0.26 L). Request to the surrogate team drafted:
-  `DOCUMENTATION.md/REQUEST_SURROGATE_TEAM_CONTACT_POINT_20261117.md` — **not yet sent**.
-- Spec 04 EC-4: tilted-cube corner contact (centre up to 0.866 L) may be detected late by the
-  sphere-based primitive-wall neighbour list (radius L/2). Decided fix: use r_circ·L for surrogates.
-- For tilted/spinning cases also needed: quaternion integration in fix nve/sphere (orientation is
-  never updated today), cube inertia m·L²/6 (code uses sphere 0.4·m·r²), `set ... quat` for surrogates.
+- **MANDATORY (Spec 04 R04.2b): contact point for torque.** On a plane the force direction is the
+  wall normal (no change). The application point (corner / edge midpoint / face centre) is needed
+  for the torque; rotation is then computed by the native contact law + integrator (same pattern
+  as superquadrics). **Decision 2026-11-17:** STOPGAP in LIGGGHTS — point computed from the exact
+  `h_exact` cube geometry (penetration-weighted vertices below the plane). **The final source MUST
+  be the surrogate output**; every stopgap site is marked `STOPGAP (Spec 04 R04.2b)`. Request to the
+  surrogate team: `DOCUMENTATION.md/REQUEST_SURROGATE_TEAM_CONTACT_POINT_20261117.md` — not yet sent.
+- New surface model `surface surrogate`, **selected explicitly** in pair_style / fix wall/gran
+  (like `surface superquadric`). Superquadric code is never modified.
+- Corner detection, rigid-body motion, `set quat`, `compute erotate/surrogate`: done (Session 9).
+- Shape-dependent quantities go through the per-shape layer `SurrogateShape` (selected by
+  `h_exact_method`); multi-shape readiness table in Spec 03 R03.9. Multi-shape itself: later.
+- **BUG (open): restart not supported for surrogate** — `.scratch/surrogate-restart/issues/01-restart-not-supported.md`
+  (Spec 03 R03.10). No current input uses restart.
 
 ---
 

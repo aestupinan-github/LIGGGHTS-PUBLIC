@@ -15,6 +15,11 @@
 #include "memory.h"
 #include "error.h"
 #include "math_const.h"
+#ifdef SURROGATE_ACTIVE_FLAG
+#include "surrogate_interface.h"
+#include "surrogate_path_resolver.h"
+#include "scaler_parser.h"
+#endif
 
 using namespace LAMMPS_NS;
 using namespace MathConst;
@@ -28,10 +33,11 @@ AtomVecSurrogate::AtomVecSurrogate(LAMMPS *lmp) : AtomVec(lmp)
   molecular = 0;
   comm_x_only = 0;
   comm_f_only = 0;
-  size_forward = 7;
-  size_reverse = 3;
-  size_border = 7;
-  size_velocity = 6;
+  // Spec 03 R03.9 (2026-11-17): sizes match what the pack_* functions write
+  size_forward = 7;      // x(3) + quaternion(4)
+  size_reverse = 3;      // f(3)
+  size_border = 15;      // x(3) tag type mask image quaternion(4) radius rmass L shape_key
+  size_velocity = 6;     // v(3) + omega(3)
   size_data_atom = 8;
   size_data_vel = 7;
   xcol_data = 6;
@@ -129,9 +135,33 @@ void AtomVecSurrogate::register_shape(const char *shape_name)
     }
   }
 
+  // Shape geometry (Spec 03 R03.9): read h_exact_method from the shape's scalers.dat
+  // and select the per-shape geometry layer; fails if the shape has no geometry.
+  const SurrogateInterface::ShapeGeometry *geom = NULL;
+  {
+    std::string scaler_path = SurrogatePathResolver::resolve_scaler_path(shape_name);
+    ScalerRecord rec;
+    std::string perr;
+    if (scaler_path.empty() || !ScalerParser::parse_file(scaler_path, rec, perr)) {
+      char msg[1024];
+      snprintf(msg, 1024,
+        "atom_style surrogate %s: cannot read scalers.dat (%s). Set SS_MODELS_DIR?",
+        shape_name, scaler_path.empty() ? "SS_models/<shape>-walls not found" : perr.c_str());
+      error->all(FLERR, msg);
+    }
+    geom = SurrogateInterface::shape_geometry_for(rec.h_exact_method.c_str());
+    if (!geom) {
+      char msg[512];
+      snprintf(msg, 512, "atom_style surrogate %s: no geometry for h_exact_method '%s'",
+               shape_name, rec.h_exact_method.c_str());
+      error->all(FLERR, msg);
+    }
+  }
+
   // Register the shape (dynamic key assignment supports future multi-shape designs)
   atom->surrogate_shape_names.push_back(std::string(shape_name));
   atom->surrogate_shape_keys.push_back(atom->surrogate_shape_current_key);
+  atom->surrogate_shape_inertia_factor.push_back(geom->inertia_factor);
   int assigned_key = atom->surrogate_shape_current_key;
   atom->surrogate_shape_current_key++;
 
@@ -406,24 +436,7 @@ int AtomVecSurrogate::unpack_reverse_hybrid(int n, int *list, double *buf)
 int AtomVecSurrogate::pack_border(int n, int *list, double *buf,
                                  int pbc_flag, int *pbc)
 {
-  int i, j, m = 0;
-  if (pbc_flag == 0) {
-    for (i = 0; i < n; i++) {
-      j = list[i];
-      buf[m++] = atom->x[j][0];
-      buf[m++] = atom->x[j][1];
-      buf[m++] = atom->x[j][2];
-      buf[m++] = ubuf(atom->tag[j]).d;
-      buf[m++] = ubuf(atom->type[j]).d;
-      buf[m++] = ubuf(atom->mask[j]).d;
-      buf[m++] = ubuf(atom->image[j]).d;
-      buf[m++] = atom->quaternion[j][0];
-      buf[m++] = atom->quaternion[j][1];
-      buf[m++] = atom->quaternion[j][2];
-      buf[m++] = atom->quaternion[j][3];
-    }
-  }
-  return m;
+  return pack_border_impl(n, list, buf, pbc_flag, pbc, false);
 }
 
 /* ---------------------------------------------------------------------- */
@@ -431,24 +444,70 @@ int AtomVecSurrogate::pack_border(int n, int *list, double *buf,
 int AtomVecSurrogate::pack_border_vel(int n, int *list, double *buf,
                                      int pbc_flag, int *pbc)
 {
-  int i, j, m = 0;
-  if (pbc_flag == 0) {
-    for (i = 0; i < n; i++) {
-      j = list[i];
-      buf[m++] = atom->x[j][0];
-      buf[m++] = atom->x[j][1];
-      buf[m++] = atom->x[j][2];
-      buf[m++] = ubuf(atom->tag[j]).d;
-      buf[m++] = ubuf(atom->type[j]).d;
-      buf[m++] = ubuf(atom->mask[j]).d;
-      buf[m++] = ubuf(atom->image[j]).d;
+  return pack_border_impl(n, list, buf, pbc_flag, pbc, true);
+}
+
+/* ---------------------------------------------------------------------- */
+
+/**
+ * @brief Pack ghost (border) atoms, with or without velocities
+ *
+ * Layout per atom: x(3) tag type mask image quaternion(4) radius rmass
+ * characteristic_length shape_key [v(3) omega(3)]. Periodic images are shifted
+ * by the box length (pbc_flag != 0), as in AtomVecSphere.
+ * Ghosts carry their shape (L, shape_key) for future ss-ss contact (Spec 03 R03.9).
+ *
+ * @param n        number of atoms to pack
+ * @param list     local indices
+ * @param buf      output buffer
+ * @param pbc_flag 0 = no periodic shift, 1 = shift by pbc
+ * @param pbc      periodic image flags
+ * @param with_vel also pack v and omega
+ *
+ * @return number of doubles written
+ */
+int AtomVecSurrogate::pack_border_impl(int n, int *list, double *buf,
+                                       int pbc_flag, int *pbc, bool with_vel)
+{
+  double dx = 0.0, dy = 0.0, dz = 0.0;
+  if (pbc_flag != 0) {
+    if (domain->triclinic == 0) {
+      dx = pbc[0]*domain->xprd;
+      dy = pbc[1]*domain->yprd;
+      dz = pbc[2]*domain->zprd;
+    } else {
+      dx = pbc[0];
+      dy = pbc[1];
+      dz = pbc[2];
+    }
+  }
+  int m = 0;
+  for (int i = 0; i < n; i++) {
+    const int j = list[i];
+    buf[m++] = atom->x[j][0] + dx;
+    buf[m++] = atom->x[j][1] + dy;
+    buf[m++] = atom->x[j][2] + dz;
+    buf[m++] = ubuf(atom->tag[j]).d;
+    buf[m++] = ubuf(atom->type[j]).d;
+    buf[m++] = ubuf(atom->mask[j]).d;
+    buf[m++] = ubuf(atom->image[j]).d;
+    buf[m++] = atom->quaternion[j][0];
+    buf[m++] = atom->quaternion[j][1];
+    buf[m++] = atom->quaternion[j][2];
+    buf[m++] = atom->quaternion[j][3];
+    buf[m++] = atom->radius[j];
+    buf[m++] = atom->rmass[j];
+#ifdef SURROGATE_ACTIVE_FLAG
+    buf[m++] = atom->characteristic_length[j];
+    buf[m++] = ubuf(atom->shape_key[j]).d;
+#else
+    buf[m++] = 0.0;
+    buf[m++] = ubuf(0).d;
+#endif
+    if (with_vel) {
       buf[m++] = atom->v[j][0];
       buf[m++] = atom->v[j][1];
       buf[m++] = atom->v[j][2];
-      buf[m++] = atom->quaternion[j][0];
-      buf[m++] = atom->quaternion[j][1];
-      buf[m++] = atom->quaternion[j][2];
-      buf[m++] = atom->quaternion[j][3];
       buf[m++] = atom->omega[j][0];
       buf[m++] = atom->omega[j][1];
       buf[m++] = atom->omega[j][2];
@@ -476,32 +535,32 @@ int AtomVecSurrogate::pack_border_hybrid(int n, int *list, double *buf)
 
 void AtomVecSurrogate::unpack_border(int n, int first, double *buf)
 {
-  int i, m, last;
-  last = first + n;
-  m = 0;
-  for (i = first; i < last; i++) {
-    atom->x[i][0] = buf[m++];
-    atom->x[i][1] = buf[m++];
-    atom->x[i][2] = buf[m++];
-    atom->tag[i] = (tagint) ubuf(buf[m++]).i;
-    atom->type[i] = (int) ubuf(buf[m++]).i;
-    atom->mask[i] = (int) ubuf(buf[m++]).i;
-    atom->image[i] = (imageint) ubuf(buf[m++]).i;
-    atom->quaternion[i][0] = buf[m++];
-    atom->quaternion[i][1] = buf[m++];
-    atom->quaternion[i][2] = buf[m++];
-    atom->quaternion[i][3] = buf[m++];
-  }
+  unpack_border_impl(n, first, buf, false);
 }
 
 /* ---------------------------------------------------------------------- */
 
 void AtomVecSurrogate::unpack_border_vel(int n, int first, double *buf)
 {
-  int i, m, last;
-  last = first + n;
-  m = 0;
-  for (i = first; i < last; i++) {
+  unpack_border_impl(n, first, buf, true);
+}
+
+/* ---------------------------------------------------------------------- */
+
+/**
+ * @brief Unpack ghost atoms written by pack_border_impl (same layout)
+ *
+ * @param n        number of atoms
+ * @param first    first ghost index
+ * @param buf      input buffer
+ * @param with_vel buffer also contains v and omega
+ */
+void AtomVecSurrogate::unpack_border_impl(int n, int first, double *buf, bool with_vel)
+{
+  int m = 0;
+  const int last = first + n;
+  for (int i = first; i < last; i++) {
+    if (i == nmax) grow(0);
     atom->x[i][0] = buf[m++];
     atom->x[i][1] = buf[m++];
     atom->x[i][2] = buf[m++];
@@ -509,16 +568,26 @@ void AtomVecSurrogate::unpack_border_vel(int n, int first, double *buf)
     atom->type[i] = (int) ubuf(buf[m++]).i;
     atom->mask[i] = (int) ubuf(buf[m++]).i;
     atom->image[i] = (imageint) ubuf(buf[m++]).i;
-    atom->v[i][0] = buf[m++];
-    atom->v[i][1] = buf[m++];
-    atom->v[i][2] = buf[m++];
     atom->quaternion[i][0] = buf[m++];
     atom->quaternion[i][1] = buf[m++];
     atom->quaternion[i][2] = buf[m++];
     atom->quaternion[i][3] = buf[m++];
-    atom->omega[i][0] = buf[m++];
-    atom->omega[i][1] = buf[m++];
-    atom->omega[i][2] = buf[m++];
+    atom->radius[i] = buf[m++];
+    atom->rmass[i] = buf[m++];
+#ifdef SURROGATE_ACTIVE_FLAG
+    atom->characteristic_length[i] = buf[m++];
+    atom->shape_key[i] = (int) ubuf(buf[m++]).i;
+#else
+    m += 2;
+#endif
+    if (with_vel) {
+      atom->v[i][0] = buf[m++];
+      atom->v[i][1] = buf[m++];
+      atom->v[i][2] = buf[m++];
+      atom->omega[i][0] = buf[m++];
+      atom->omega[i][1] = buf[m++];
+      atom->omega[i][2] = buf[m++];
+    }
   }
 }
 

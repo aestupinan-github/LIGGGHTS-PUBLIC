@@ -21,6 +21,23 @@ namespace SurrogateInterface {
 /// Matches compute_h_exact_batch() in the run_029 training code.
 static constexpr double CUBE_HALF_EDGE_UNIT = 0.5;
 
+/**
+ * @brief Body-to-world rotation matrix R(q) for q = [qw, qx, qy, qz]
+ *
+ * Same convention as MathExtraLiggghtsNonspherical::quat_to_mat and the
+ * run_029 training code (compute_h_exact_batch).
+ *
+ * @param quat Unit quaternion [qw, qx, qy, qz]
+ * @param R    Output 3x3 rotation matrix (body -> world)
+ */
+inline void rotation_matrix(const double quat[4], double R[3][3])
+{
+  const double w = quat[0], x = quat[1], y = quat[2], z = quat[3];
+  R[0][0] = 1 - 2*(y*y + z*z); R[0][1] = 2*(x*y - z*w);     R[0][2] = 2*(x*z + y*w);
+  R[1][0] = 2*(x*y + z*w);     R[1][1] = 1 - 2*(x*x + z*z); R[1][2] = 2*(y*z - x*w);
+  R[2][0] = 2*(x*z - y*w);     R[2][1] = 2*(y*z + x*w);     R[2][2] = 1 - 2*(x*x + y*y);
+}
+
 /* =====================================================================
    Exact support height (run_029 / option4 physics part)
 ===================================================================== */
@@ -47,18 +64,120 @@ static constexpr double CUBE_HALF_EDGE_UNIT = 0.5;
  */
 inline double h_exact_cube(const double quat[4], const double dir_wall[3])
 {
-  const double w = quat[0], x = quat[1], y = quat[2], z = quat[3];
-  const double R[3][3] = {
-    {1 - 2*(y*y + z*z), 2*(x*y - z*w),     2*(x*z + y*w)},
-    {2*(x*y + z*w),     1 - 2*(x*x + z*z), 2*(y*z - x*w)},
-    {2*(x*z - y*w),     2*(y*z + x*w),     1 - 2*(x*x + y*y)}
-  };
+  double R[3][3];
+  rotation_matrix(quat, R);
   // body-frame direction toward wall: u = R^T d
   double u[3];
   for (int k = 0; k < 3; k++)
     u[k] = R[0][k]*dir_wall[0] + R[1][k]*dir_wall[1] + R[2][k]*dir_wall[2];
   // max over cube vertices (+-a,+-a,+-a) of v.u = a*(|u0|+|u1|+|u2|)
   return CUBE_HALF_EDGE_UNIT * (std::fabs(u[0]) + std::fabs(u[1]) + std::fabs(u[2]));
+}
+
+/**
+ * @brief STOPGAP (Spec 04 R04.2b): contact point of the unit cube on a plane
+ *
+ * TEMPORARY. The contact point MUST eventually come from the surrogate model
+ * output (Constitution rule 1, single geometric evaluation). Until then it is
+ * computed here from the exact cube geometry of the same option4 evaluation.
+ * Cube only. See DOCUMENTATION.md/REQUEST_SURROGATE_TEAM_CONTACT_POINT_20261117.md
+ *
+ * Definition: with the penetration depth p = -sd_unit > 0 taken from the
+ * surrogate, the wall plane sits at depth (h - p) below the centre along d.
+ * Vertex k has depth s_k = v_k . d; it is in contact when s_k > h - p, with
+ * weight w_k = s_k - (h - p). The deepest vertex (s = h) always has weight p,
+ * so the point is defined even when the model's sd differs from h_exact by
+ * ~1e-4. The point is the weighted mean of the contacting vertices, projected
+ * onto the wall plane. It varies continuously corner -> edge -> face.
+ *
+ * @param quat      Unit quaternion [qw, qx, qy, qz]
+ * @param dir_wall  Unit vector from particle centre toward the wall (world frame)
+ * @param sd_unit   Signed distance from the surrogate (unit cube; < 0 = contact)
+ * @param cp_unit   Output: contact point relative to the centre, world frame, units of L
+ *
+ * @return true if a contact point was computed (sd_unit < 0), false otherwise
+ */
+inline bool contact_point_cube(const double quat[4], const double dir_wall[3],
+                               double sd_unit, double cp_unit[3])
+{
+  cp_unit[0] = cp_unit[1] = cp_unit[2] = 0.0;
+  if (!(sd_unit < 0.0)) return false;
+
+  double R[3][3];
+  rotation_matrix(quat, R);
+  const double a = CUBE_HALF_EDGE_UNIT;
+  const double h = h_exact_cube(quat, dir_wall);
+  const double p = -sd_unit;
+  const double plane_depth = h - p;   // depth of the wall plane below the centre along d
+
+  double wsum = 0.0, acc[3] = {0.0, 0.0, 0.0};
+  for (int ix = -1; ix <= 1; ix += 2)
+    for (int iy = -1; iy <= 1; iy += 2)
+      for (int iz = -1; iz <= 1; iz += 2) {
+        const double vb[3] = {ix*a, iy*a, iz*a};
+        double vw[3];
+        for (int r = 0; r < 3; r++)
+          vw[r] = R[r][0]*vb[0] + R[r][1]*vb[1] + R[r][2]*vb[2];
+        const double s = vw[0]*dir_wall[0] + vw[1]*dir_wall[1] + vw[2]*dir_wall[2];
+        const double w = s - plane_depth;
+        if (w > 0.0) {
+          wsum += w;
+          for (int r = 0; r < 3; r++) acc[r] += w * vw[r];
+        }
+      }
+  if (wsum <= 0.0) return false;   // unreachable: deepest vertex has weight p > 0
+
+  for (int r = 0; r < 3; r++) acc[r] /= wsum;
+  // project onto the wall plane: remove the component along d, put it at plane_depth
+  const double along = acc[0]*dir_wall[0] + acc[1]*dir_wall[1] + acc[2]*dir_wall[2];
+  for (int r = 0; r < 3; r++)
+    cp_unit[r] = acc[r] + (plane_depth - along) * dir_wall[r];
+  return true;
+}
+
+/* =====================================================================
+   Per-shape geometry layer (Spec 03 R03.9, Spec 04 design)
+   All shape-dependent quantities go through this struct; new shapes add a
+   new entry, never cube formulas at the call site.
+===================================================================== */
+
+/**
+ * @brief Shape-dependent constants and geometry functions (unit size L = 1)
+ */
+struct ShapeGeometry {
+  const char *name;            ///< identifier, matches scalers.dat h_exact_method
+  double bounding_radius;      ///< circumscribed radius / L (corner reach)
+  double inertia_factor;       ///< k_I in I = k_I m L^2 (isotropic shapes only)
+  double volume_factor;        ///< k_V in V = k_V L^3
+  /// exact support height toward the wall, units of L
+  double (*support_height)(const double quat[4], const double dir_wall[3]);
+  /// STOPGAP (Spec 04 R04.2b) contact point, units of L, relative to the centre
+  bool (*contact_point)(const double quat[4], const double dir_wall[3],
+                        double sd_unit, double cp_unit[3]);
+};
+
+/// Cube (run_029, h_exact_method analytical_rotation_matrix)
+static const ShapeGeometry SHAPE_CUBE = {
+  "analytical_rotation_matrix",
+  0.86602540378443864676,      // sqrt(3)/2
+  1.0 / 6.0,                   // solid cube: I = m L^2 / 6 about any centroidal axis
+  1.0,
+  &h_exact_cube,
+  &contact_point_cube
+};
+
+/**
+ * @brief Select the shape geometry from the scalers.dat h_exact_method field
+ *
+ * @param h_exact_method value of the h_exact_method field
+ *
+ * @return pointer to the shape geometry, or nullptr if unknown
+ */
+inline const ShapeGeometry *shape_geometry_for(const char *h_exact_method)
+{
+  if (h_exact_method && std::strcmp(h_exact_method, SHAPE_CUBE.name) == 0)
+    return &SHAPE_CUBE;
+  return nullptr;
 }
 
 /* =====================================================================

@@ -1,0 +1,58 @@
+# test_05c_cube_1cm_spin_h010.in: Surrogate cube (L = 1 cm) dropped on a plane -- Spinning, generic tilt, centre height 0.10 m
+#
+# Spec 04 R04.2b-e (tilted / rotating cubes). Contact point: STOPGAP (Spec 04
+# R04.2b), computed in LIGGGHTS from the exact cube geometry; MUST later come
+# from the surrogate model output.
+#
+# Orientation set with 'set ... quat_direct qw qx qy qz' (normalized by LIGGGHTS).
+# Rotational energy: compute erotate/surrogate (I = m L^2 / 6 for the cube).
+
+units           si
+atom_style      surrogate ss-cube
+dimension       3
+boundary        f f f
+newton          off
+
+region          domain block -0.1 0.1 -0.1 0.1 0.0 0.2 units box
+create_box      1 domain
+
+create_atoms    1 single 0.0 0.0 0.1
+
+# L = diameter (Spec 03 R03.3); cube mass rho*L^3 set AFTER diameter
+set             atom * diameter 0.01
+set             atom * mass 0.001
+set             atom * quat_direct 0.923380516876639 0.307793505625546 0.205195670417031 0.102597835208515
+
+fix             m1 all property/global youngsModulus peratomtype 1.0e9
+fix             m2 all property/global poissonsRatio peratomtype 0.25
+fix             m3 all property/global coefficientRestitution peratomtypepair 1 0.9
+fix             m4 all property/global coefficientFriction peratomtypepair 1 0.2
+
+velocity        all set 0.0 0.0 0.0
+set             atom * omegax 50 omegay 30 omegaz 0
+
+fix             integrate all nve/sphere
+fix             gravity all gravity 9.81 vector 0.0 0.0 -1.0
+
+# Surface model 'surrogate' selected explicitly (Spec 04 R04.2c)
+fix             wall all wall/gran model hertz tangential history surface surrogate primitive type 1 zplane 0.0
+pair_style      gran model hertz tangential history surface surrogate
+pair_coeff      * *
+
+neigh_modify    check no delay 0
+timestep        0.00001
+
+# Energies: translational KE, rotational (cube inertia), gravitational PE
+compute         ke all ke
+compute         erot all erotate/surrogate
+variable        epot equal mass(all)*9.81*xcm(all,z)
+variable        etot equal c_ke+c_erot+v_epot
+variable        zc equal xcm(all,z)
+thermo          100
+thermo_style    custom step atoms v_zc c_ke c_erot v_epot v_etot
+thermo_modify   format float %.10g
+
+shell           mkdir post
+dump            dmpvtk all custom/vtk 50 post/test_05c_*.vtk id type x y z vx vy vz fx fy fz omegax omegay omegaz tqx tqy tqz radius mass quat1 quat2 quat3 quat4
+
+run             20000

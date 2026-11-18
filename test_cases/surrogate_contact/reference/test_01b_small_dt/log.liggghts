@@ -1,4 +1,4 @@
-LIGGGHTS (Version LIGGGHTS-PUBLIC 3.8.0, compiled 2026-11-11 09:50:45 by su_estupinan, git commit b0596d1b6dca30fe03789ecd9b3e0112edc1d23d, build configuration: MPI VTK SURROGATE SMALLBIG, models: HERTZ TANGENTIAL_HISTORY TANGENTIAL_NO_HISTORY COHESION_SJKR COHESION_SJKR2 ROLLING_EPSD2 SURFACE_DEFAULT)
+LIGGGHTS (Version LIGGGHTS-PUBLIC 3.8.0, compiled 2026-11-17 17:43:12 by su_estupinan, git commit 4807d20e0b78478be124a5e825349efbab21581c, build configuration: MPI VTK SURROGATE SMALLBIG, models: HERTZ TANGENTIAL_HISTORY TANGENTIAL_NO_HISTORY COHESION_SJKR COHESION_SJKR2 ROLLING_EPSD2 SURFACE_DEFAULT SURFACE_SURROGATE)
 # Test Case 01b: Surrogate Contact - Cube (L=1m) Falling on Plane - SMALLER TIMESTEP
 #
 # Purpose: Test surrogate contact model stability with smaller timestep (dt=0.00005)
@@ -96,9 +96,9 @@ dump            dmpvtk all custom/vtk 200 post/test01b_*.vtk id type x y z vx vy
 # ===== Run =====
 # Simulate for 2 seconds (40,000 timesteps at dt=0.00005)
 run             40000
-Loading surrogate contact model for shape 'ss-cube' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:679)
-Surrogate model loaded: shape='ss-cube', model='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/test_cases/surrogate_contact/../../SS_models/ss-cube-walls/model.pt', scalers='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/test_cases/surrogate_contact/../../SS_models/ss-cube-walls/scalers.dat' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:692)
-Setting up run at Tue Nov 17 11:26:28 2026
+Loading surrogate contact model for shape 'ss-cube' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:680)
+Surrogate model loaded: shape='ss-cube', model='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/test_cases/surrogate_contact/../../SS_models/ss-cube-walls/model.pt', scalers='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/test_cases/surrogate_contact/../../SS_models/ss-cube-walls/scalers.dat' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:706)
+Setting up run at Tue Nov 17 17:47:22 2026
 
 Memory usage per processor = 4.32737 Mbytes
     Step    Atoms       thermo_k       thermo_p 
@@ -242,75 +242,75 @@ Memory usage per processor = 4.32737 Mbytes
    27400        1      90312.768              0 
    27600        1      91636.014              0 
    27800        1      92968.884              0 
-   28000        1      65145.441              0 
-   28200        1      74407.745              0 
-   28400        1      73215.835              0 
-   28600        1      72033.549              0 
-   28800        1      70860.887              0 
-   29000        1      69697.848              0 
-   29200        1      68544.433              0 
-   29400        1      67400.641              0 
-   29600        1      66266.473              0 
-   29800        1      65141.929              0 
-   30000        1      64027.008              0 
-   30200        1      62921.711              0 
-   30400        1      61826.037              0 
-   30600        1      60739.987              0 
-   30800        1      59663.561              0 
-   31000        1      58596.758              0 
-   31200        1      57539.579              0 
-   31400        1      56492.024              0 
-   31600        1      55454.092              0 
-   31800        1      54425.783              0 
-   32000        1      53407.099              0 
-   32200        1      52398.038              0 
-   32400        1        51398.6              0 
-   32600        1      50408.786              0 
-   32800        1      49428.596              0 
-   33000        1       48458.03              0 
-   33200        1      47497.087              0 
-   33400        1      46545.767              0 
-   33600        1      45604.071              0 
-   33800        1      44671.999              0 
-   34000        1      43749.551              0 
-   34200        1      42836.726              0 
-   34400        1      41933.524              0 
-   34600        1      41039.947              0 
-   34800        1      40155.992              0 
-   35000        1      39281.662              0 
-   35200        1      38416.955              0 
-   35400        1      37561.872              0 
-   35600        1      36716.412              0 
-   35800        1      35880.576              0 
-   36000        1      35054.363              0 
-   36200        1      34237.775              0 
-   36400        1      33430.809              0 
-   36600        1      32633.468              0 
-   36800        1       31845.75              0 
-   37000        1      31067.655              0 
-   37200        1      30299.185              0 
-   37400        1      29540.337              0 
-   37600        1      28791.114              0 
-   37800        1      28051.514              0 
-   38000        1      27321.537              0 
-   38200        1      26601.185              0 
-   38400        1      25890.455              0 
-   38600        1       25189.35              0 
-   38800        1      24497.868              0 
-   39000        1       23816.01              0 
-   39200        1      23143.775              0 
-   39400        1      22481.164              0 
-   39600        1      21828.176              0 
-   39800        1      21184.813              0 
-   40000        1      20551.072              0 
-Loop time of 0.206614 on 1 procs for 40000 steps with 1 atoms, finish time Tue Nov 17 11:26:28 2026
+   28000        1      72842.976              0 
+   28200        1       74824.85              0 
+   28400        1      73629.591              0 
+   28600        1      72443.955              0 
+   28800        1      71267.943              0 
+   29000        1      70101.555              0 
+   29200        1       68944.79              0 
+   29400        1      67797.649              0 
+   29600        1      66660.131              0 
+   29800        1      65532.238              0 
+   30000        1      64413.967              0 
+   30200        1      63305.321              0 
+   30400        1      62206.298              0 
+   30600        1      61116.898              0 
+   30800        1      60037.122              0 
+   31000        1       58966.97              0 
+   31200        1      57906.441              0 
+   31400        1      56855.536              0 
+   31600        1      55814.255              0 
+   31800        1      54782.597              0 
+   32000        1      53760.563              0 
+   32200        1      52748.152              0 
+   32400        1      51745.365              0 
+   32600        1      50752.202              0 
+   32800        1      49768.662              0 
+   33000        1      48794.746              0 
+   33200        1      47830.454              0 
+   33400        1      46875.785              0 
+   33600        1      45930.739              0 
+   33800        1      44995.318              0 
+   34000        1       44069.52              0 
+   34200        1      43153.345              0 
+   34400        1      42246.794              0 
+   34600        1      41349.867              0 
+   34800        1      40462.563              0 
+   35000        1      39584.883              0 
+   35200        1      38716.827              0 
+   35400        1      37858.394              0 
+   35600        1      37009.585              0 
+   35800        1      36170.399              0 
+   36000        1      35340.837              0 
+   36200        1      34520.899              0 
+   36400        1      33710.584              0 
+   36600        1      32909.893              0 
+   36800        1      32118.825              0 
+   37000        1      31337.381              0 
+   37200        1      30565.561              0 
+   37400        1      29803.364              0 
+   37600        1      29050.791              0 
+   37800        1      28307.842              0 
+   38000        1      27574.516              0 
+   38200        1      26850.814              0 
+   38400        1      26136.735              0 
+   38600        1       25432.28              0 
+   38800        1      24737.448              0 
+   39000        1      24052.241              0 
+   39200        1      23376.656              0 
+   39400        1      22710.696              0 
+   39600        1      22054.359              0 
+   39800        1      21407.645              0 
+   40000        1      20770.555              0 
+Loop time of 0.291718 on 1 procs for 40000 steps with 1 atoms, finish time Tue Nov 17 17:47:23 2026
 
 
-Pair  time (%) = 0.00264716 (1.28121)
-Neigh time (%) = 0.146031 (70.6785)
-Comm  time (%) = 0.00205023 (0.992303)
-Outpt time (%) = 0.0169994 (8.22761)
-Other time (%) = 0.0388854 (18.8203)
+Pair  time (%) = 0.00336869 (1.15478)
+Neigh time (%) = 0.157235 (53.8997)
+Comm  time (%) = 0.0024679 (0.845988)
+Outpt time (%) = 0.0300512 (10.3015)
+Other time (%) = 0.0985949 (33.7981)
 
 Nlocal:    1 ave 1 max 1 min
 Histogram: 1 0 0 0 0 0 0 0 0 0

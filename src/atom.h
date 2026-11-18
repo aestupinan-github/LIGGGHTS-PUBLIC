@@ -300,6 +300,9 @@ class Atom : protected Pointers {
   std::vector<std::string> surrogate_shape_names;  ///< Shape names (e.g., "ss-cube")
   std::vector<int> surrogate_shape_keys;           ///< Parallel vector of shape keys
   int surrogate_shape_current_key;                 ///< Counter for next shape registration
+  /// Per-shape inertia factor k_I (I = k_I * m * L^2), indexed by shape key (Spec 04 R04.2e).
+  /// Filled at shape registration from the shape geometry layer (scalers.dat h_exact_method).
+  std::vector<double> surrogate_shape_inertia_factor;
 #endif
 
  private:
