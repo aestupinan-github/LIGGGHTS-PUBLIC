@@ -395,7 +395,14 @@ public:
           sidata.mi = mi;
           sidata.mj = mj;
           
-          if(atom->sphere_flag) {
+          if(atom->sphere_flag
+#ifdef SURROGATE_ACTIVE_FLAG
+             // surrogate particles with 'surface default' (sphere placeholder for cube-cube
+             // contact, Spec 04 R04.7) need the sphere normal too; without it en stayed
+             // uninitialised -> wrong force direction and energy gain (fixed 2026-11-18)
+             || atom->surrogate_flag
+#endif
+            ) {
               sidata.en[0]   = enx_sphere;
               sidata.en[1]   = eny_sphere;
               sidata.en[2]   = enz_sphere;

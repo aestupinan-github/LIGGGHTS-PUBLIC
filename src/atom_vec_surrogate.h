@@ -113,7 +113,8 @@ class AtomVecSurrogate : public AtomVec {
   bigint memory_usage();
 
  private:
-  int DELTA;
+  // growth increment: #define DELTA in atom_vec_surrogate.cpp (a member of the same name was
+  // removed 2026-11-18: it was never initialised and shadowed by the macro)
 };
 
 } // namespace LAMMPS_NS

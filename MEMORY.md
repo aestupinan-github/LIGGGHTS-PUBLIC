@@ -88,6 +88,16 @@ only after an intended change (copy the new output.log, note it here).
 r_circ·L (0.866 L, like superquadrics); `set density/diameter` give cube mass ρL³. Neighbour time
 with default bins 150 → 43 ms (single particle); contact law still uses reff = L/2; ctest unchanged.
 
+**Batched model calls (2026-11-18, Spec 04 R04.2f):** one forward pass per step and wall for all
+candidates; 125-cube test 11× faster (wall fixes 17.3 → 1.57 s); results = single calls to float32.
+
+**Multi-particle test (2026-11-18, Spec 06):** `test_cases/surrogate_multi/in.pour_125_cubes`
+(125 cubes, 6 walls, random orientations). Cube–cube contact is a PLACEHOLDER (sphere, bounding
+radius) until a cube–cube surrogate exists (Spec 04 R04.7). Serial: no lost particles, no energy
+gain; np2 identical, np4 identical to ~1e-11 then chaotic round-off growth. In ctest.
+Bugs found and fixed: `AtomVecSurrogate::grow()` never grew arrays (segfault with >1 particle);
+`PairGranBase` left the contact normal uninitialised for surrogate + `surface default` (energy gain).
+
 **Open (later):**
 4. Multi-shape per simulation (Spec 03 R03.6a/R03.9 table: per-particle shape_key input, model
    registry by shape_key, pair-model paths, per-shape L↔r and volume).
@@ -95,8 +105,8 @@ with default bins 150 → 43 ms (single particle); contact law still uses reff =
 6. ss-ss contact (Spec 04 R04.7), mesh walls (R04.8).
 8. No experimental / physical validation yet (only numerical: Hertz estimates, SQ reference).
 
-**Next steps (proposed):** send the contact-point request →
-decide between Spec 05 (automated tests from the reference cases) and multi-shape.
+**Next steps (proposed):** send the contact-point request; ask the surrogate team for a cube–cube
+model (Spec 04 R04.7) to replace the multi-particle placeholder; then multi-shape support.
 
 **Build notes:** surrogate build in `build/` (`-DENABLE_SURROGATE=ON -DLIBTORCH_DIR=~/Programs/libtorch`);
 SQ build only from a copy of `src/` (generated `src/style_*.h` are shared per source tree).

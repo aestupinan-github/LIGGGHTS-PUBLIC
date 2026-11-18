@@ -48,6 +48,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "fix_wall_gran.h"
+#include <array>
+#include <algorithm>
 #include "atom.h"
 #include "domain.h"
 #include "update.h"
@@ -1122,6 +1124,13 @@ void FixWallGran::post_force_primitive(int vflag)
   int *neighborList;
   int nNeigh = primitiveWall_->getNeighbors(neighborList);
 
+#ifdef SURROGATE_ACTIVE_FLAG
+  // Spec 04 R04.2f: evaluate the surrogate model ONCE per step for all candidate
+  // particles of this wall (batched forward pass); the loop below reads the results.
+  if(atom->surrogate_flag)
+    surrogate_batch_query(neighborList, nNeigh);
+#endif
+
   for (int iCont = 0; iCont < nNeigh ; iCont++, neighborList++)
   {
     int iPart = *neighborList;
@@ -1219,8 +1228,10 @@ void FixWallGran::post_force_primitive(int vflag)
         // unchanged from the validated face/edge/corner results (Spec 04 R04.2b/RF-8c)
         sidata.radi = 0.5 * L_actual;
 
-        // Prefilter (scalers.dat z_prefilter): cube cannot touch the wall
-        if(z_unit > surrogate_contact_model_->scaler_record.z_prefilter) {
+        // Prefilter (scalers.dat z_prefilter): cube cannot touch the wall; also covers
+        // particles outside the bounding-sphere reach (not queried by the batch)
+        if(z_unit > surrogate_contact_model_->scaler_record.z_prefilter
+           || surrogate_batch_slot_[iPart] < 0) {
           if(c_history)
             vectorZeroizeN(c_history[iPart], dnum_);
           continue;
@@ -1232,10 +1243,10 @@ void FixWallGran::post_force_primitive(int vflag)
           dir_wall[0] = delta[0]/dmag; dir_wall[1] = delta[1]/dmag; dir_wall[2] = delta[2]/dmag;
         }
 
-        double sd_unit = 0.0;
-        const double sd_phys = surrogate_contact_model_->query_overlap(
-          z_unit, L_actual, atom->quaternion[iPart], dir_wall,
-          atom->tag[iPart], update->ntimestep, sd_unit);
+        // result of the batched model evaluation of this step (surrogate_batch_query)
+        const int bslot = surrogate_batch_slot_[iPart];
+        const double sd_unit = surrogate_batch_sd_unit_[bslot];
+        const double sd_phys = surrogate_batch_sd_phys_[bslot];
 
         // Outside the accuracy zone of the training data (sd_too_deep = -0.1)
         if(sd_unit < surrogate_contact_model_->scaler_record.sd_too_deep) {
@@ -1388,6 +1399,69 @@ void FixWallGran::post_force_primitive(int vflag)
   }
 #endif
 }
+
+/* ---------------------------------------------------------------------- */
+
+#ifdef SURROGATE_ACTIVE_FLAG
+/**
+ * @brief Batched surrogate query for all candidate particles of a primitive wall (Spec 04 R04.2f)
+ *
+ * Applies the same geometric gates as the contact loop (group mask, reach of the bounding
+ * sphere, z_prefilter) and evaluates the model for all remaining particles in one forward
+ * pass. Results are stored per local atom index in surrogate_batch_slot_ (-1 = not queried)
+ * and surrogate_batch_sd_unit_/sd_phys_. Results are identical to per-particle calls
+ * (batched and single forward passes agree to float32 round-off, ~5e-7 in raw output).
+ *
+ * @param neighborList wall neighbour list (local atom indices)
+ * @param nNeigh       its length
+ */
+void FixWallGran::surrogate_batch_query(const int *neighborList, int nNeigh)
+{
+  const int nall = atom->nlocal + atom->nghost;
+  if((int)surrogate_batch_slot_.size() < nall) surrogate_batch_slot_.resize(nall);
+  std::fill(surrogate_batch_slot_.begin(), surrogate_batch_slot_.end(), -1);
+  if(!surrogate_contact_model_ || !surrogate_contact_model_->is_loaded() || nNeigh <= 0) return;
+
+  std::vector<double> z, L;
+  std::vector<std::array<double,4> > q;
+  std::vector<std::array<double,3> > d;
+  std::vector<int> id;
+  z.reserve(nNeigh); L.reserve(nNeigh); q.reserve(nNeigh); d.reserve(nNeigh); id.reserve(nNeigh);
+  double delta[3];
+  const int *mask = atom->mask;
+  const double zpre = surrogate_contact_model_->scaler_record.z_prefilter;
+
+  for(int iCont = 0; iCont < nNeigh; iCont++)
+  {
+    const int iPart = neighborList[iCont];
+    if(!(mask[iPart] & groupbit)) continue;
+    const double radi = radius_ ? radius_[iPart] : r0_;
+    const double deltan = primitiveWall_->resolveContact(x_[iPart], radi, delta);
+    if(deltan > cutneighmax_ || deltan > 0.0) continue;          // out of reach (same gates as the loop)
+    const double Lp = atom->characteristic_length[iPart];
+    if(Lp <= 0.0) continue;                                       // reported by the contact loop
+    const double zu = (deltan + radi) / Lp;
+    if(zu > zpre) continue;                                       // prefilter: no contact possible
+    std::array<double,3> dw = {{0.0, 0.0, -1.0}};
+    const double dmag = vectorMag3D(delta);
+    if(dmag > 0.0) { dw[0] = delta[0]/dmag; dw[1] = delta[1]/dmag; dw[2] = delta[2]/dmag; }
+    surrogate_batch_slot_[iPart] = (int)z.size();
+    z.push_back(zu); L.push_back(Lp); d.push_back(dw); id.push_back(atom->tag[iPart]);
+    q.push_back({{atom->quaternion[iPart][0], atom->quaternion[iPart][1],
+                  atom->quaternion[iPart][2], atom->quaternion[iPart][3]}});
+  }
+  const int n = (int)z.size();
+  surrogate_batch_sd_unit_.resize(n);
+  surrogate_batch_sd_phys_.resize(n);
+  if(n > 0)
+    surrogate_contact_model_->query_overlap_batch(
+      n, z.data(), L.data(),
+      reinterpret_cast<const double (*)[4]>(q.data()),
+      reinterpret_cast<const double (*)[3]>(d.data()),
+      id.data(), update->ntimestep,
+      surrogate_batch_sd_unit_.data(), surrogate_batch_sd_phys_.data());
+}
+#endif
 
 /* ---------------------------------------------------------------------- */
 

@@ -324,6 +324,12 @@ class FixWallGran : public Fix, public LIGGGHTS::IContactHistorySetup {
 
   /// Per-shape geometry of the loaded model (Spec 03 R03.9); selected by h_exact_method
   const SurrogateInterface::ShapeGeometry *surrogate_shape_;
+
+  /// Batched model evaluation per step (Spec 04 R04.2f)
+  void surrogate_batch_query(const int *neighborList, int nNeigh);
+  std::vector<int> surrogate_batch_slot_;        ///< per local atom: index into results, -1 = not queried
+  std::vector<double> surrogate_batch_sd_unit_;  ///< dimensionless signed distance per query
+  std::vector<double> surrogate_batch_sd_phys_;  ///< physical signed distance per query
   
   // Validation diagnostics (Phase 3C)
   double energy_prev_;

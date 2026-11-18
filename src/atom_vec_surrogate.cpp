@@ -182,10 +182,14 @@ void AtomVecSurrogate::register_shape(const char *shape_name)
 
 void AtomVecSurrogate::grow(int n)
 {
-  if (n == 0) n = nmax + DELTA;
+  // n == 0: enlarge by DELTA (fix 2026-11-18: nmax was not updated, so arrays never grew
+  // and the 2nd created atom wrote out of bounds -> segfault with > 1 particle)
+  if (n == 0) nmax += DELTA;
   else nmax = n;
 
   atom->nmax = nmax;
+  if (nmax < 0 || nmax > MAXSMALLINT)
+    error->one(FLERR, "Per-processor system is too big");
 
   memory->grow(atom->x, nmax, 3, "atom:x");
   memory->grow(atom->v, nmax, 3, "atom:v");

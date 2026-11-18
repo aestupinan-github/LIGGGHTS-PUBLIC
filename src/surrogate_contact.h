@@ -219,6 +219,69 @@ public:
   }
   
   /**
+   * @brief Batched query: signed distances for many particles in ONE model forward pass
+   *
+   * Same contract as query_overlap() (Spec 00 R00.1-R00.5), evaluated for n inputs at once
+   * (Spec 04 R04.2f). Avoids the ~11-15 us fixed LibTorch overhead per call; per particle the
+   * cost drops to ~0.4 us at batch >= 100 (micro-benchmark 2026-11-18).
+   *
+   * @param n           number of queries
+   * @param z_unit      [n] centre distance to wall / L
+   * @param L_actual    [n] characteristic length
+   * @param quat        [n][4] orientations [qw, qx, qy, qz] (any sign, any norm)
+   * @param dir_wall    [n][3] unit vectors centre -> wall
+   * @param particle_id [n] particle IDs (error messages)
+   * @param step        time step (error messages)
+   * @param sd_unit_out [n] output: dimensionless signed distance
+   * @param sd_phys_out [n] output: physical signed distance (> 0 gap, <= 0 contact)
+   */
+  void query_overlap_batch(int n, const double *z_unit, const double *L_actual,
+                           const double (*quat)[4], const double (*dir_wall)[3],
+                           const int *particle_id, int step,
+                           double *sd_unit_out, double *sd_phys_out)
+  {
+#ifdef SURROGATE_ACTIVE_FLAG
+    if (n <= 0) return;
+    std::vector<float> zf(n), qf(4 * (size_t)n);
+    std::vector<double> qc(4 * (size_t)n);
+    for (int i = 0; i < n; i++) {
+      validator.validate_inputs_for_surrogate(z_unit[i] * L_actual[i], L_actual[i], quat[i], particle_id[i]);
+      double qq[4] = {quat[i][0], quat[i][1], quat[i][2], quat[i][3]};
+      SurrogateInterface::canonicalize_quaternion(qq);
+      SurrogateInterface::normalize_quaternion(qq);
+      zf[i] = (float)z_unit[i];
+      for (int k = 0; k < 4; k++) { qf[4*i+k] = (float)qq[k]; qc[4*i+k] = qq[k]; }
+    }
+    try {
+      torch::Tensor pz = torch::from_blob(zf.data(), {n}, torch::kFloat32);
+      torch::Tensor qt = torch::from_blob(qf.data(), {n, 4}, torch::kFloat32);
+      std::vector<torch::jit::IValue> in{pz, qt};
+      torch::Tensor out;
+      {
+        torch::NoGradGuard no_grad;
+        out = model.forward(in).toTensor().reshape({-1}).to(torch::kFloat64).contiguous();
+      }
+      const double *raw = out.data_ptr<double>();
+      for (int i = 0; i < n; i++) {
+        const double h = SurrogateInterface::h_exact_cube(&qc[4*i], dir_wall[i]);
+        sd_phys_out[i] = validator.validate_outputs_from_surrogate(
+          raw[i], z_unit[i], scaler_record.y_mean, scaler_record.y_scale,
+          h, L_actual[i], particle_id[i], sd_unit_out[i]);
+      }
+    }
+    catch (const std::exception &e) {
+      char msg[1024];
+      snprintf(msg, 1024,
+        "Surrogate batched inference failed (%d queries) at step %d, shape '%s':\n  Error: %s",
+        n, step, loaded_shape_name.c_str(), e.what());
+      error->one(FLERR, msg);
+    }
+#else
+    error->one(FLERR, "Surrogate contact requires ENABLE_SURROGATE=ON at compile time");
+#endif
+  }
+
+  /**
    * @brief Check if model is loaded and ready
    * 
    * @return true if model successfully loaded; false otherwise

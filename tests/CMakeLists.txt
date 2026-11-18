@@ -46,6 +46,14 @@ IF(ENABLE_SURROGATE)
       SET_TESTS_PROPERTIES(surrogate_regression_${INPUT} PROPERTIES
         ENVIRONMENT "${SS_ENV}" TIMEOUT 900 LABELS "regression;surrogate")
     ENDFOREACH()
+
+    # multi-particle (Spec 06): 125 cubes, 6 walls, batched model calls; serial vs reference
+    ADD_TEST(NAME surrogate_regression_pour_125_cubes
+             COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/regression/check_case.py
+                     $<TARGET_FILE:liggghts_bin> ${REPO}/test_cases/surrogate_multi/in.pour_125_cubes
+                     ${REPO}/test_cases/surrogate_multi/reference/np1/output.log 1e-6)
+    SET_TESTS_PROPERTIES(surrogate_regression_pour_125_cubes PROPERTIES
+      ENVIRONMENT "${SS_ENV}" TIMEOUT 900 LABELS "regression;surrogate;multi")
   ELSE()
     MESSAGE(STATUS "Python3 not found: surrogate regression tests not registered")
   ENDIF()

@@ -82,3 +82,7 @@ Session-by-session log of the surrogate shape (ss) project. Comprehensive record
 - **S10:** surrogate vs superquadric comparison, 5 cases × (surrogate + SQ n = 10…1000), report
   with gnuplot figures + .dat data: `DOCUMENTATION.md/comparison_surrogate_vs_superquadric/REPORT.md`.
 - Resume point and open items: `MEMORY.md` → "RESUME HERE".
+- **S11 (2026-11-18):** (1) CTest suite (Spec 05): unit, regression vs reference, error tests,
+  default-build check, CI `--output-on-failure`. (2a) surrogate radius = bounding radius
+  (Spec 03 R03.11). (2b) batched model calls (Spec 04 R04.2f, 11× on 125 cubes). (3) multi-particle
+  test, 125 cubes, serial + MPI (Spec 06); fixed `grow()` segfault and uninitialised pair normal.

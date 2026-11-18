@@ -1,0 +1,190 @@
+LIGGGHTS (Version LIGGGHTS-PUBLIC 3.8.0, compiled 2026-11-18 11:10:39 by su_estupinan, git commit ceedc090eb15b4b534d21d318a22f629123ad4cd, build configuration: MPI VTK SURROGATE SMALLBIG, models: HERTZ TANGENTIAL_HISTORY TANGENTIAL_NO_HISTORY COHESION_SJKR COHESION_SJKR2 ROLLING_EPSD2 SURFACE_DEFAULT SURFACE_SURROGATE)
+Registered surrogate shape: ss-cube (key=0)
+Created orthogonal box = (-0.06 -0.06 0) to (0.06 0.06 0.2)
+  1 by 1 by 1 MPI processor grid
+Lattice spacing in x,y,z = 0.02 0.02 0.02
+Created 125 atoms
+Displacing atoms ...
+Setting atom values ...
+  125 settings made for diameter
+Setting atom values ...
+  125 settings made for density
+Setting atom values ...
+  125 settings made for quat/random
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/contact_models.h:365)
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/contact_models.h:365)
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/contact_models.h:365)
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/contact_models.h:365)
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/contact_models.h:365)
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/contact_models.h:365)
+WARNING: 
+	The contact model you specified is not located in any whitelist.
+	Because of this the model will be run in an unoptimized version (increasing runtime by up to 20%).
+	In order to optimize this model you have the following options:
+		(i)  Run the genAutoExamplesWhitelist.sh script in your LIGGGHTS(R) source folder to automatically parse the input script
+		(ii) Add the model combination by hand to your style_contact_model_user.whitelist that can be found in your LIGGGHTS(R) source folder
+		(iii) Use the ENABLE_MODEL_* flag when building with cmake.
+	If you perform one of the steps above LIGGGHTS(R) needs to be recompiled to generate the optimized code.
+
+ (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/contact_models.h:365)
+Loading surrogate contact model for shape 'ss-cube' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:682)
+Surrogate model loaded: shape='ss-cube', model='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/SS_models/ss-cube-walls/model.pt', scalers='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/SS_models/ss-cube-walls/scalers.dat' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:708)
+Loading surrogate contact model for shape 'ss-cube' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:682)
+Surrogate model loaded: shape='ss-cube', model='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/SS_models/ss-cube-walls/model.pt', scalers='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/SS_models/ss-cube-walls/scalers.dat' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:708)
+Loading surrogate contact model for shape 'ss-cube' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:682)
+Surrogate model loaded: shape='ss-cube', model='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/SS_models/ss-cube-walls/model.pt', scalers='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/SS_models/ss-cube-walls/scalers.dat' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:708)
+Loading surrogate contact model for shape 'ss-cube' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:682)
+Surrogate model loaded: shape='ss-cube', model='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/SS_models/ss-cube-walls/model.pt', scalers='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/SS_models/ss-cube-walls/scalers.dat' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:708)
+Loading surrogate contact model for shape 'ss-cube' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:682)
+Surrogate model loaded: shape='ss-cube', model='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/SS_models/ss-cube-walls/model.pt', scalers='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/SS_models/ss-cube-walls/scalers.dat' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:708)
+Loading surrogate contact model for shape 'ss-cube' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:682)
+Surrogate model loaded: shape='ss-cube', model='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/SS_models/ss-cube-walls/model.pt', scalers='/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/SS_models/ss-cube-walls/scalers.dat' (/home/su_estupinan@private.list.lu/SpaceLights/LIGGGHTS-PUBLIC/src/fix_wall_gran.cpp:708)
+Setting up run at Wed Nov 18 12:20:30 2026
+
+Memory usage per processor = 9.0463 Mbytes
+    Step    Atoms             zc             ke           erot           epot           etot 
+       0      125 0.1000367833 0 0 0.1226701056 0.1226701056 
+    1000      125 0.09954628334 0.000601475625 0 0.1220686299 0.1226701056 
+    2000      125 0.09807478334 0.0024059025 0 0.1202642031 0.1226701056 
+    3000      125 0.09562228334 0.005413280625 0 0.1172568249 0.1226701056 
+    4000      125 0.09218878334 0.00962361 0 0.1130464956 0.1226701056 
+    5000      125 0.08777428334 0.01503689062 0 0.1076332149 0.1226701056 
+    6000      125 0.08237878334 0.0216531225 0 0.1010169831 0.1226701056 
+    7000      125 0.07600228334 0.02947230562 0 0.09319779994 0.1226701056 
+    8000      125 0.06864478334 0.03849444 0 0.08417566557 0.1226701056 
+    9000      125 0.06030628334 0.04871952562 0 0.07395057994 0.1226701056 
+   10000      125 0.05098678334 0.0601475625 0 0.06252254307 0.1226701056 
+   11000      125 0.04262586985 0.04008063397 0.001240074482 0.0522699729 0.09359068135 
+   12000      125 0.03957121449 0.004879676655 0.002285386701 0.04852420177 0.05568926513 
+   13000      125 0.03952777647 0.003346942743 0.001474468282 0.0484709359 0.05329234692 
+   14000      125 0.03885368543 0.003257321456 0.001211189702 0.04764433176 0.05211284292 
+   15000      125 0.03762799381 0.003854626965 0.001007304659 0.04614132741 0.05100325904 
+   16000      125 0.03593704348 0.004867699602 0.0008844570043 0.04406779957 0.04981995618 
+   17000      125 0.03409990345 0.005660551185 0.0007568698705 0.0418150066 0.04823242766 
+   18000      125 0.03201839199 0.006372126925 0.0007672388579 0.03926255318 0.04640191896 
+   19000      125 0.02984646568 0.006875399967 0.0007386998767 0.03659922854 0.04421332838 
+   20000      125 0.02782535629 0.006248173646 0.0006118034718 0.03412084315 0.04098082027 
+   21000      125 0.02603442295 0.005119636825 0.000658021414 0.03192471114 0.03770236938 
+   22000      125 0.0245690447 0.004695238673 0.0006278742909 0.03012779106 0.03545090403 
+   23000      125 0.0232993962 0.003906431284 0.0006075134793 0.02857088459 0.03308482935 
+   24000      125 0.02218706342 0.002894279197 0.0005077106383 0.02720688652 0.03060887635 
+   25000      125 0.02142386627 0.002133014096 0.0003898781492 0.02627101601 0.02879390826 
+   26000      125 0.02081534676 0.001460813646 0.0003050972849 0.02552481897 0.0272907299 
+   27000      125 0.02033198178 0.0009422621051 0.0002641003817 0.02493209266 0.02613845515 
+   28000      125 0.01995968325 0.0007429189785 0.0001929843396 0.02447556159 0.02541146491 
+   29000      125 0.0196246303 0.0006011628041 0.0001675059641 0.0240647029 0.02483337167 
+   30000      125 0.01933367916 0.0005393478161 0.0001510301215 0.02370792407 0.02439830201 
+Loop time of 1.7606 on 1 procs for 30000 steps with 125 atoms, finish time Wed Nov 18 12:20:31 2026
+
+
+Pair  time (%) = 0.0605591 (3.43968)
+Neigh time (%) = 0.00458058 (0.260171)
+Comm  time (%) = 0.000872858 (0.0495772)
+Outpt time (%) = 0.00838674 (0.476356)
+Modfy time (%) = 1.67322 (95.0369)
+  Modify   time [0] (%) = 1.67322 (95.0369)
+Other time (%) = 0.0129818 (0.737351)
+Fix m1 property/global time (%) = 3.09e-07 (1.75508e-05)
+  [0] Fix m1 property/global time 3.09e-07
+Fix m2 property/global time (%) = 1.5e-08 (8.51981e-07)
+  [0] Fix m2 property/global time 1.5e-08
+Fix m3 property/global time (%) = 1.4e-08 (7.95182e-07)
+  [0] Fix m3 property/global time 1.4e-08
+Fix m4 property/global time (%) = 1.4e-08 (7.95182e-07)
+  [0] Fix m4 property/global time 1.4e-08
+Fix integrate nve/sphere time (%) = 0.0593728 (3.3723)
+  [0] Fix integrate nve/sphere time 0.0593728
+Fix gravity gravity time (%) = 0.00606094 (0.344253)
+  [0] Fix gravity gravity time 0.00606094
+Fix wz0 wall/gran time (%) = 0.524343 (29.782)
+  [0] Fix wz0 wall/gran time 0.524343
+Fix history_wz0 property/atom time (%) = 7.198e-06 (0.000408837)
+  [0] Fix history_wz0 property/atom time 7.198e-06
+Fix wz1 wall/gran time (%) = 0.00155 (0.0880383)
+  [0] Fix wz1 wall/gran time 0.00155
+Fix history_wz1 property/atom time (%) = 3.005e-06 (0.00017068)
+  [0] Fix history_wz1 property/atom time 3.005e-06
+Fix wx0 wall/gran time (%) = 0.269726 (15.3201)
+  [0] Fix wx0 wall/gran time 0.269726
+Fix history_wx0 property/atom time (%) = 3.28e-06 (0.0001863)
+  [0] Fix history_wx0 property/atom time 3.28e-06
+Fix wx1 wall/gran time (%) = 0.272405 (15.4723)
+  [0] Fix wx1 wall/gran time 0.272405
+Fix history_wx1 property/atom time (%) = 2.66e-06 (0.000151085)
+  [0] Fix history_wx1 property/atom time 2.66e-06
+Fix wy0 wall/gran time (%) = 0.283934 (16.1271)
+  [0] Fix wy0 wall/gran time 0.283934
+Fix history_wy0 property/atom time (%) = 2.919e-06 (0.000165795)
+  [0] Fix history_wy0 property/atom time 2.919e-06
+Fix wy1 wall/gran time (%) = 0.255292 (14.5003)
+  [0] Fix wy1 wall/gran time 0.255292
+Fix history_wy1 property/atom time (%) = 3.374e-06 (0.000191639)
+  [0] Fix history_wy1 property/atom time 3.374e-06
+Fix contacthistory contacthistory time (%) = 0.000514021 (0.0291957)
+  [0] Fix contacthistory contacthistory time 0.000514021
+
+Nlocal:    125 ave 125 max 125 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Nghost:    0 ave 0 max 0 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+Neighs:    309 ave 309 max 309 min
+Histogram: 1 0 0 0 0 0 0 0 0 0
+
+Total # of neighbors = 309
+Ave neighs/atom = 2.472
+Neighbor list builds = 186
+Dangerous builds = 0

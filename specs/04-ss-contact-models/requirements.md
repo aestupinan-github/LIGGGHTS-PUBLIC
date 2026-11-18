@@ -144,6 +144,18 @@ Request to the surrogate (training) team: `DOCUMENTATION.md/REQUEST_SURROGATE_TE
   anisotropic inertia require a body-frame integrator (follow `fix nve/superquadric`) — recorded
   in Spec 03 multi-shape readiness.
 
+### R04.2f: Batched Model Evaluation (2026-11-18)
+
+- RF-15: THE SYSTEM SHALL evaluate the surrogate model once per time step and wall for all
+  candidate particles (one forward pass with a batch of size n), not once per particle.
+- RF-15a: Candidates = particles in the wall neighbour list, in the group, within reach of the
+  bounding sphere and with z_unit ≤ z_prefilter (same gates as the contact loop).
+- RF-15b: Results SHALL equal the per-particle evaluation to float32 round-off (raw output
+  difference ≤ 5e-7 measured).
+- Measured (2026-11-18): micro-benchmark 10.9 µs per call at batch 1 vs 0.37 µs per particle at
+  batch ≥ 100. 125-cube test (Spec 06): wall fixes 17.3 s → 1.57 s (11×), loop 17.5 s → 1.72 s.
+  Single-particle tests unchanged (batch of 1).
+
 ### R04.3: Input Validation (CRITICAL - Prevents Silent Failures)
 
 **Before Surrogate Query:**

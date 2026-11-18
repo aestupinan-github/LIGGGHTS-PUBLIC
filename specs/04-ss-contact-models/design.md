@@ -95,3 +95,12 @@ code only; verified that nothing superquadric-specific is behind it) and enables
 `q ← Δq(ω dt) ⊗ q` each full step (same algorithm as `MathExtraLiggghtsNonspherical::integrate_quat`).
 
 **compute erotate/surrogate:** `Σ ½ k_I m L² |ω|²`.
+
+## Batched model evaluation (R04.2f, 2026-11-18)
+
+`FixWallGran::post_force_primitive` calls `surrogate_batch_query(neighborList, nNeigh)` before the
+contact loop: it applies the same gates (group, `deltan ≤ 0` with bounding radius, z_prefilter),
+collects (z_unit, L, q, d) and calls `SurrogateContactModel::query_overlap_batch` (one
+`model.forward(position_z[n], quat[n,4])`). Results are stored per local atom
+(`surrogate_batch_slot_[i]` → `surrogate_batch_sd_unit_/sd_phys_`); the contact loop reads them.
+`query_overlap` (single) is kept for tests and diagnostics.

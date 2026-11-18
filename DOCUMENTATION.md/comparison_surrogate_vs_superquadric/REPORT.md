@@ -273,9 +273,11 @@ columns documented in the header); raw per-repeat timings: `data/timing_raw_warm
    **Fixed 2026-11-18** (Spec 03 R03.11): surrogate `radius` is now the bounding radius
    0.866·L; with default settings the surrogate neighbour time is 43 ms per run, equal to SQ
    (loop 70–86 ms), results unchanged (ctest regression).
-2. *Scaling with particle count.* The model cost is per wall contact, so in dense systems the
-   ~15 µs per evaluation will dominate; batching all contacts of a step into one forward pass
-   (one tensor of size N) would amortise the per-call overhead — not implemented yet.
+2. *Scaling with particle count.* The model cost is per wall contact. **Implemented 2026-11-18**
+   (Spec 04 R04.2f): all contacts of a step and wall go through one forward pass; per particle
+   the cost falls to ~0.4 µs at batch ≥ 100. In a 125-cube test (Spec 06) the wall-contact time
+   dropped 11× (17.3 s → 1.57 s for 30 000 steps). The single-particle timings above are
+   unaffected (batch of 1).
 3. *Variance.* SQ runs show occasional slow repeats (std up to 6 ms); surrogate runs are
    stable (≤ 0.2 ms). The machine was shared (load ≈ 3.5 on 32 cores); runs were sequential and
    pinned to one core.
